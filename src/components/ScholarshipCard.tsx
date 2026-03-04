@@ -1,4 +1,4 @@
-import { GraduationCap, Calendar, MapPin, ArrowUpRight } from "lucide-react";
+import { GraduationCap, Calendar, MapPin, ArrowUpRight, ExternalLink } from "lucide-react";
 import type { Scholarship } from "@/data/scholarships";
 
 interface ScholarshipCardProps {
@@ -25,21 +25,22 @@ const ScholarshipCard = ({ scholarship }: ScholarshipCardProps) => {
             <span className="font-body text-xs font-medium text-muted-foreground uppercase tracking-wide">
               {scholarship.country}
             </span>
+            <span className={`ml-auto rounded-full px-2 py-0.5 font-body text-[10px] font-semibold uppercase tracking-wide ${
+              scholarship.status === "Active"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {scholarship.status}
+            </span>
           </div>
-          <h3 className="font-display text-xl font-bold text-card-foreground leading-tight">
+          <h3 className="font-display text-lg font-bold text-card-foreground leading-tight">
             {scholarship.name}
           </h3>
         </div>
-        <a
-          href={scholarship.link}
-          className="ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-all group-hover:border-gold group-hover:bg-gold group-hover:text-accent-foreground"
-        >
-          <ArrowUpRight className="h-4 w-4" />
-        </a>
       </div>
 
-      <p className="mb-4 flex items-center gap-1.5 font-body text-sm text-muted-foreground">
-        <MapPin className="h-3.5 w-3.5" />
+      <p className="mb-3 flex items-center gap-1.5 font-body text-sm text-muted-foreground">
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
         {scholarship.university}
       </p>
 
@@ -70,6 +71,18 @@ const ScholarshipCard = ({ scholarship }: ScholarshipCardProps) => {
           </p>
         </div>
       </div>
+
+      {scholarship.link && scholarship.link !== "#" && (
+        <a
+          href={scholarship.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 font-body text-sm font-medium text-card-foreground transition-all hover:border-gold hover:bg-gold/10 hover:text-gold-dark"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Learn More & Apply
+        </a>
+      )}
     </div>
   );
 };
