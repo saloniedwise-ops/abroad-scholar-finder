@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      scholarship_sources: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_checked_at: string | null
+          notes: string | null
+          source_name: string
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_checked_at?: string | null
+          notes?: string | null
+          source_name: string
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_checked_at?: string | null
+          notes?: string | null
+          source_name?: string
+          source_url?: string | null
+        }
+        Relationships: []
+      }
+      scholarships: {
+        Row: {
+          amount_display: string | null
+          country_flag: string | null
+          country_name: string
+          created_at: string | null
+          deadline_display: string | null
+          degree_level: string
+          description: string | null
+          featured: boolean | null
+          field_category: string
+          id: string
+          intake: string | null
+          is_active: boolean | null
+          learn_more_url: string | null
+          public_visible: boolean | null
+          scholarship_name: string
+          status: string | null
+          university_name: string
+        }
+        Insert: {
+          amount_display?: string | null
+          country_flag?: string | null
+          country_name: string
+          created_at?: string | null
+          deadline_display?: string | null
+          degree_level: string
+          description?: string | null
+          featured?: boolean | null
+          field_category: string
+          id?: string
+          intake?: string | null
+          is_active?: boolean | null
+          learn_more_url?: string | null
+          public_visible?: boolean | null
+          scholarship_name: string
+          status?: string | null
+          university_name: string
+        }
+        Update: {
+          amount_display?: string | null
+          country_flag?: string | null
+          country_name?: string
+          created_at?: string | null
+          deadline_display?: string | null
+          degree_level?: string
+          description?: string | null
+          featured?: boolean | null
+          field_category?: string
+          id?: string
+          intake?: string | null
+          is_active?: boolean | null
+          learn_more_url?: string | null
+          public_visible?: boolean | null
+          scholarship_name?: string
+          status?: string | null
+          university_name?: string
+        }
+        Relationships: []
+      }
+      universities: {
+        Row: {
+          country_name: string | null
+          created_at: string | null
+          id: string
+          university_name: string
+          website_url: string | null
+        }
+        Insert: {
+          country_name?: string | null
+          created_at?: string | null
+          id?: string
+          university_name: string
+          website_url?: string | null
+        }
+        Update: {
+          country_name?: string | null
+          created_at?: string | null
+          id?: string
+          university_name?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
