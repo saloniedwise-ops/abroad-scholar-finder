@@ -1,4 +1,3 @@
-import { countries, fields, degrees, universities } from "@/data/scholarships";
 import { X, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
@@ -12,6 +11,10 @@ interface FilterBarProps {
   onDegreeChange: (degree: string) => void;
   onUniversityChange: (university: string) => void;
   resultCount: number;
+  countries: string[];
+  fields: string[];
+  degrees: string[];
+  universities: string[];
 }
 
 const FilterBar = ({
@@ -24,6 +27,10 @@ const FilterBar = ({
   onDegreeChange,
   onUniversityChange,
   resultCount,
+  countries,
+  fields,
+  degrees,
+  universities,
 }: FilterBarProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -43,7 +50,6 @@ const FilterBar = ({
     <div className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 py-4">
         <div className="flex flex-col gap-4">
-          {/* Primary filters row */}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               <select
@@ -108,7 +114,6 @@ const FilterBar = ({
             </div>
           </div>
 
-          {/* Advanced filters */}
           {showAdvanced && (
             <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
               <select
@@ -124,7 +129,6 @@ const FilterBar = ({
             </div>
           )}
 
-          {/* Active filter chips */}
           {hasActiveFilters && (
             <div className="flex flex-wrap gap-2">
               {selectedCountry && (

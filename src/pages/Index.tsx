@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { scholarships } from "@/data/scholarships";
-import type { Scholarship } from "@/data/scholarships";
+import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
+import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
 import FilterBar from "@/components/FilterBar";
 import ScholarshipCard from "@/components/ScholarshipCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Globe, BookOpen, Building2 } from "lucide-react";
+import { GraduationCap, Globe, BookOpen, Building2, Loader2 } from "lucide-react";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,52 +14,49 @@ const Index = () => {
   const [selectedDegree, setSelectedDegree] = useState("");
   const [selectedUniversity, setSelectedUniversity] = useState("");
 
+  const { data: scholarships = [], isLoading, error } = useScholarships();
+  const filterOptions = useFilterOptions(scholarships);
+
   const filtered = useMemo(() => {
     return scholarships.filter((s) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.university.toLowerCase().includes(q) ||
-        s.country.toLowerCase().includes(q) ||
-        s.field.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q);
+        s.scholarship_name.toLowerCase().includes(q) ||
+        s.university_name.toLowerCase().includes(q);
 
-      const matchesCountry = !selectedCountry || s.country === selectedCountry;
-      const matchesField = !selectedField || s.field === selectedField;
-      const matchesDegree = !selectedDegree || s.degree.includes(selectedDegree);
-      const matchesUniversity = !selectedUniversity || s.university === selectedUniversity;
+      const matchesCountry = !selectedCountry || s.country_name === selectedCountry;
+      const matchesField = !selectedField || s.field_category === selectedField;
+      const matchesDegree = !selectedDegree || s.degree_level.includes(selectedDegree);
+      const matchesUniversity = !selectedUniversity || s.university_name === selectedUniversity;
 
       return matchesSearch && matchesCountry && matchesField && matchesDegree && matchesUniversity;
     });
-  }, [searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
+  }, [scholarships, searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
 
-  // Group by country
   const byCountry = useMemo(() => {
     const map: Record<string, Scholarship[]> = {};
     filtered.forEach((s) => {
-      if (!map[s.country]) map[s.country] = [];
-      map[s.country].push(s);
+      if (!map[s.country_name]) map[s.country_name] = [];
+      map[s.country_name].push(s);
     });
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [filtered]);
 
-  // Group by degree
   const byDegree = useMemo(() => {
     const map: Record<string, Scholarship[]> = {};
     filtered.forEach((s) => {
-      if (!map[s.degree]) map[s.degree] = [];
-      map[s.degree].push(s);
+      if (!map[s.degree_level]) map[s.degree_level] = [];
+      map[s.degree_level].push(s);
     });
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [filtered]);
 
-  // Group by field
   const byField = useMemo(() => {
     const map: Record<string, Scholarship[]> = {};
     filtered.forEach((s) => {
-      if (!map[s.field]) map[s.field] = [];
-      map[s.field].push(s);
+      if (!map[s.field_category]) map[s.field_category] = [];
+      map[s.field_category].push(s);
     });
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [filtered]);
@@ -95,7 +92,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="bg-hero px-4 py-4">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -125,62 +121,74 @@ const Index = () => {
         onDegreeChange={setSelectedDegree}
         onUniversityChange={setSelectedUniversity}
         resultCount={filtered.length}
+        countries={filterOptions.countries}
+        fields={filterOptions.fields}
+        degrees={filterOptions.degrees}
+        universities={filterOptions.universities}
       />
 
-      {/* Scholarship Content */}
       <main className="container mx-auto px-4 py-10">
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="mb-8 flex w-full flex-wrap gap-1 bg-muted/50 p-1">
-            <TabsTrigger value="all" className="flex items-center gap-1.5 font-body">
-              <GraduationCap className="h-3.5 w-3.5" />
-              All
-            </TabsTrigger>
-            <TabsTrigger value="country" className="flex items-center gap-1.5 font-body">
-              <Globe className="h-3.5 w-3.5" />
-              By Country
-            </TabsTrigger>
-            <TabsTrigger value="degree" className="flex items-center gap-1.5 font-body">
-              <BookOpen className="h-3.5 w-3.5" />
-              By Degree
-            </TabsTrigger>
-            <TabsTrigger value="field" className="flex items-center gap-1.5 font-body">
-              <Building2 className="h-3.5 w-3.5" />
-              By Field
-            </TabsTrigger>
-          </TabsList>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-gold" />
+          </div>
+        ) : error ? (
+          <div className="py-20 text-center">
+            <p className="font-body text-destructive">Failed to load scholarships. Please try again.</p>
+          </div>
+        ) : (
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="mb-8 flex w-full flex-wrap gap-1 bg-muted/50 p-1">
+              <TabsTrigger value="all" className="flex items-center gap-1.5 font-body">
+                <GraduationCap className="h-3.5 w-3.5" />
+                All
+              </TabsTrigger>
+              <TabsTrigger value="country" className="flex items-center gap-1.5 font-body">
+                <Globe className="h-3.5 w-3.5" />
+                By Country
+              </TabsTrigger>
+              <TabsTrigger value="degree" className="flex items-center gap-1.5 font-body">
+                <BookOpen className="h-3.5 w-3.5" />
+                By Degree
+              </TabsTrigger>
+              <TabsTrigger value="field" className="flex items-center gap-1.5 font-body">
+                <Building2 className="h-3.5 w-3.5" />
+                By Field
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="all">
-            {featured.length > 0 && (
-              <section className="mb-10">
+            <TabsContent value="all">
+              {featured.length > 0 && (
+                <section className="mb-10">
+                  <h2 className="mb-6 font-display text-2xl font-bold text-foreground">
+                    ⭐ Featured Scholarships
+                  </h2>
+                  {renderGrid(featured)}
+                </section>
+              )}
+              <section>
                 <h2 className="mb-6 font-display text-2xl font-bold text-foreground">
-                  ⭐ Featured Scholarships
+                  All Scholarships
                 </h2>
-                {renderGrid(featured)}
+                {renderGrid(filtered)}
               </section>
-            )}
+            </TabsContent>
 
-            <section>
-              <h2 className="mb-6 font-display text-2xl font-bold text-foreground">
-                All Scholarships
-              </h2>
-              {renderGrid(filtered)}
-            </section>
-          </TabsContent>
+            <TabsContent value="country">
+              {renderGrouped(byCountry, <Globe className="h-5 w-5 text-gold" />)}
+            </TabsContent>
 
-          <TabsContent value="country">
-            {renderGrouped(byCountry, <Globe className="h-5 w-5 text-gold" />)}
-          </TabsContent>
+            <TabsContent value="degree">
+              {renderGrouped(byDegree, <BookOpen className="h-5 w-5 text-gold" />)}
+            </TabsContent>
 
-          <TabsContent value="degree">
-            {renderGrouped(byDegree, <BookOpen className="h-5 w-5 text-gold" />)}
-          </TabsContent>
+            <TabsContent value="field">
+              {renderGrouped(byField, <Building2 className="h-5 w-5 text-gold" />)}
+            </TabsContent>
+          </Tabs>
+        )}
 
-          <TabsContent value="field">
-            {renderGrouped(byField, <Building2 className="h-5 w-5 text-gold" />)}
-          </TabsContent>
-        </Tabs>
-
-        {filtered.length === 0 && (
+        {!isLoading && !error && filtered.length === 0 && (
           <div className="py-20 text-center">
             <GraduationCap className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
             <h3 className="mb-2 font-display text-xl font-semibold text-foreground">
@@ -193,7 +201,6 @@ const Index = () => {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border bg-muted py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="font-body text-sm text-muted-foreground">
