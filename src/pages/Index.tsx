@@ -4,8 +4,11 @@ import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
 import FilterBar from "@/components/FilterBar";
 import ScholarshipCard from "@/components/ScholarshipCard";
+import ScholarshipPagination from "@/components/ScholarshipPagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GraduationCap, Globe, BookOpen, Building2, Loader2 } from "lucide-react";
+
+const ITEMS_PER_PAGE = 12;
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -13,11 +16,13 @@ const Index = () => {
   const [selectedField, setSelectedField] = useState("");
   const [selectedDegree, setSelectedDegree] = useState("");
   const [selectedUniversity, setSelectedUniversity] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: scholarships = [], isLoading, error } = useScholarships();
   const filterOptions = useFilterOptions(scholarships);
 
   const filtered = useMemo(() => {
+    setCurrentPage(1);
     return scholarships.filter((s) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -33,6 +38,9 @@ const Index = () => {
       return matchesSearch && matchesCountry && matchesField && matchesDegree && matchesUniversity;
     });
   }, [scholarships, searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedItems = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const byCountry = useMemo(() => {
     const map: Record<string, Scholarship[]> = {};
@@ -61,7 +69,7 @@ const Index = () => {
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [filtered]);
 
-  const featured = filtered.filter((s) => s.featured);
+  const featured = paginatedItems.filter((s) => s.featured);
 
   const renderGrid = (items: Scholarship[]) => (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -170,7 +178,12 @@ const Index = () => {
                 <h2 className="mb-6 font-display text-2xl font-bold text-foreground">
                   All Scholarships
                 </h2>
-                {renderGrid(filtered)}
+                {renderGrid(paginatedItems)}
+                <ScholarshipPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </section>
             </TabsContent>
 
