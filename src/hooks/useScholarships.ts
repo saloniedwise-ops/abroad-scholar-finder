@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface Scholarship {
   id: string;
   scholarship_name: string;
+  scholarship_slug: string | null;
   university_name: string;
   country_name: string;
   country_flag: string;
@@ -13,18 +16,39 @@ export interface Scholarship {
   intake: string | null;
   deadline_display: string | null;
   description: string | null;
+  summary: string | null;
   status: string | null;
   learn_more_url: string | null;
   featured: boolean | null;
+  last_verified_at: string | null;
 }
 
 export function useScholarships() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("scholarships-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scholarships" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["scholarships"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ["scholarships"],
     queryFn: async (): Promise<Scholarship[]> => {
       const { data, error } = await supabase
         .from("scholarships")
-        .select("id, scholarship_name, university_name, country_name, country_flag, degree_level, field_category, amount_display, intake, deadline_display, description, status, learn_more_url, featured")
+        .select("id, scholarship_name, scholarship_slug, university_name, country_name, country_flag, degree_level, field_category, amount_display, intake, deadline_display, description, summary, status, learn_more_url, featured, last_verified_at")
         .eq("public_visible", true)
         .eq("is_active", true)
         .order("featured", { ascending: false })
@@ -33,6 +57,25 @@ export function useScholarships() {
       if (error) throw error;
       return data as Scholarship[];
     },
+  });
+}
+
+export function useScholarshipBySlug(slug: string) {
+  return useQuery({
+    queryKey: ["scholarship", slug],
+    queryFn: async (): Promise<Scholarship | null> => {
+      const { data, error } = await supabase
+        .from("scholarships")
+        .select("id, scholarship_name, scholarship_slug, university_name, country_name, country_flag, degree_level, field_category, amount_display, intake, deadline_display, description, summary, status, learn_more_url, featured, last_verified_at")
+        .eq("scholarship_slug", slug)
+        .eq("public_visible", true)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as Scholarship | null;
+    },
+    enabled: !!slug,
   });
 }
 

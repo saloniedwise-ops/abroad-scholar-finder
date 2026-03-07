@@ -14,30 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      scholarship_changes: {
+        Row: {
+          detected_at: string | null
+          field_changed: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          scholarship_id: string | null
+          scholarship_name: string
+          university_name: string
+        }
+        Insert: {
+          detected_at?: string | null
+          field_changed: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          scholarship_id?: string | null
+          scholarship_name: string
+          university_name: string
+        }
+        Update: {
+          detected_at?: string | null
+          field_changed?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          scholarship_id?: string | null
+          scholarship_name?: string
+          university_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scholarship_changes_scholarship_id_fkey"
+            columns: ["scholarship_id"]
+            isOneToOne: false
+            referencedRelation: "scholarships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scholarship_sources: {
         Row: {
           created_at: string | null
           id: string
           last_checked_at: string | null
+          last_status: string | null
           notes: string | null
           source_name: string
           source_url: string | null
+          university_name: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           last_checked_at?: string | null
+          last_status?: string | null
           notes?: string | null
           source_name: string
           source_url?: string | null
+          university_name?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           last_checked_at?: string | null
+          last_status?: string | null
           notes?: string | null
           source_name?: string
           source_url?: string | null
+          university_name?: string | null
         }
         Relationships: []
       }
@@ -55,10 +102,13 @@ export type Database = {
           id: string
           intake: string | null
           is_active: boolean | null
+          last_verified_at: string | null
           learn_more_url: string | null
           public_visible: boolean | null
           scholarship_name: string
+          scholarship_slug: string | null
           status: string | null
+          summary: string | null
           university_name: string
         }
         Insert: {
@@ -74,10 +124,13 @@ export type Database = {
           id?: string
           intake?: string | null
           is_active?: boolean | null
+          last_verified_at?: string | null
           learn_more_url?: string | null
           public_visible?: boolean | null
           scholarship_name: string
+          scholarship_slug?: string | null
           status?: string | null
+          summary?: string | null
           university_name: string
         }
         Update: {
@@ -93,10 +146,13 @@ export type Database = {
           id?: string
           intake?: string | null
           is_active?: boolean | null
+          last_verified_at?: string | null
           learn_more_url?: string | null
           public_visible?: boolean | null
           scholarship_name?: string
+          scholarship_slug?: string | null
           status?: string | null
+          summary?: string | null
           university_name?: string
         }
         Relationships: []
