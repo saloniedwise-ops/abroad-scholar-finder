@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
@@ -22,7 +22,6 @@ const Index = () => {
   const filterOptions = useFilterOptions(scholarships);
 
   const filtered = useMemo(() => {
-    setCurrentPage(1);
     return scholarships.filter((s) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -38,6 +37,10 @@ const Index = () => {
       return matchesSearch && matchesCountry && matchesField && matchesDegree && matchesUniversity;
     });
   }, [scholarships, searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedItems = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
