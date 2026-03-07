@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
