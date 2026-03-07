@@ -22,7 +22,6 @@ const Index = () => {
   const filterOptions = useFilterOptions(scholarships);
 
   const filtered = useMemo(() => {
-    setCurrentPage(1);
     return scholarships.filter((s) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
