@@ -38,6 +38,10 @@ const Index = () => {
     });
   }, [scholarships, searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCountry, selectedField, selectedDegree, selectedUniversity]);
+
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedItems = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
