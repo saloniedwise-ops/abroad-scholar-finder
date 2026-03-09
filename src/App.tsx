@@ -37,3 +37,6 @@ const App = () => (
 );
 
 export default App;
+import MonitoringDashboard from "./pages/MonitoringDashboard";
+<Route path="/" element={<Index />} />
+<Route path="/monitoring" element={<MonitoringDashboard />} />
