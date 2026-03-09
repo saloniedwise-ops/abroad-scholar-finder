@@ -11,6 +11,7 @@ const ScholarshipDetail = lazy(() => import("./pages/ScholarshipDetail"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const ChangeLog = lazy(() => import("./pages/admin/ChangeLog"));
 const SourceMonitor = lazy(() => import("./pages/admin/SourceMonitor"));
+const MonitoringDashboard = lazy(() => import("./pages/MonitoringDashboard"));
 
 const queryClient = new QueryClient();
 
@@ -24,10 +25,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/scholarship/:slug" element={<ScholarshipDetail />} />
+            <Route path="/monitoring" element={<MonitoringDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/changelog" element={<ChangeLog />} />
             <Route path="/admin/sources" element={<SourceMonitor />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
@@ -37,6 +38,3 @@ const App = () => (
 );
 
 export default App;
-import MonitoringDashboard from "./pages/MonitoringDashboard";
-<Route path="/" element={<Index />} />
-<Route path="/monitoring" element={<MonitoringDashboard />} />
