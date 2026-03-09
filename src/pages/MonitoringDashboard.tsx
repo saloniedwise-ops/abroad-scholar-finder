@@ -1,109 +1,89 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-
-type Change = {
-  detected_at: string;
-  university_name: string;
-  change_type: string;
-  change_summary: string;
-  source_url: string;
-};
-
-type SourceHealth = {
-  university_name: string;
-  source_url: string;
-  last_status: string;
-};
+import { useScholarshipChanges, useScholarshipSources } from "@/hooks/useAdminData";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function MonitoringDashboard() {
-  const [changes, setChanges] = useState<Change[]>([]);
-  const [health, setHealth] = useState<SourceHealth[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: changes = [], isLoading: loadingChanges } = useScholarshipChanges();
+  const { data: sources = [], isLoading: loadingSources } = useScholarshipSources();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const loading = loadingChanges || loadingSources;
 
-  async function fetchData() {
-    setLoading(true);
-
-    const { data: changesData } = await supabase
-      .from("v_recent_scholarship_changes")
-      .select("*")
-      .limit(100);
-
-    const { data: healthData } = await supabase
-      .from("v_source_health")
-      .select("*");
-
-    setChanges(changesData || []);
-    setHealth(healthData || []);
-    setLoading(false);
-  }
-
-  if (loading) return <div className="p-6">Loading dashboard...</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>;
 
   return (
-    <div className="p-6 space-y-10">
-      <h1 className="text-2xl font-bold">Scholarship Monitoring Dashboard</h1>
-
-      {/* Changes Table */}
-      <div>
-        <h2 className="text-xl font-semibold mb-3">Recent Changes</h2>
-
-        <div className="overflow-auto border rounded-lg">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2 text-left">Time</th>
-                <th className="p-2 text-left">University</th>
-                <th className="p-2 text-left">Type</th>
-                <th className="p-2 text-left">Summary</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((c, i) => (
-                <tr key={i} className="border-t">
-                  <td className="p-2">{new Date(c.detected_at).toLocaleString()}</td>
-                  <td className="p-2">{c.university_name}</td>
-                  <td className="p-2">{c.change_type}</td>
-                  <td className="p-2">{c.change_summary}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card px-4 py-4">
+        <div className="container mx-auto flex items-center gap-4">
+          <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
+          <h1 className="font-display text-xl font-bold text-foreground">Monitoring Dashboard</h1>
         </div>
-      </div>
+      </header>
 
-      {/* Source Health */}
-      <div>
-        <h2 className="text-xl font-semibold mb-3">Source Health</h2>
-
-        <div className="overflow-auto border rounded-lg">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2 text-left">University</th>
-                <th className="p-2 text-left">Status</th>
-                <th className="p-2 text-left">URL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {health.map((h, i) => (
-                <tr key={i} className="border-t">
-                  <td className="p-2">{h.university_name}</td>
-                  <td className="p-2">{h.last_status}</td>
-                  <td className="p-2">
-                    <a href={h.source_url} target="_blank" className="text-blue-600">
-                      Open
-                    </a>
-                  </td>
+      <main className="container mx-auto px-4 py-8 space-y-10">
+        {/* Recent Changes */}
+        <section>
+          <h2 className="font-display text-lg font-bold text-foreground mb-3">Recent Changes</h2>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-card">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Time</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">University</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scholarship</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Field</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Old</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">New</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {changes.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center font-body text-sm text-muted-foreground">No changes recorded yet.</td></tr>
+                ) : changes.map((c) => (
+                  <tr key={c.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-body text-xs text-muted-foreground">{c.detected_at ? new Date(c.detected_at).toLocaleString() : "—"}</td>
+                    <td className="px-4 py-3 font-body text-sm text-card-foreground">{c.university_name}</td>
+                    <td className="px-4 py-3 font-body text-sm font-medium text-card-foreground">{c.scholarship_name}</td>
+                    <td className="px-4 py-3"><span className="rounded-md bg-muted px-2 py-0.5 font-body text-xs font-medium text-muted-foreground">{c.field_changed}</span></td>
+                    <td className="px-4 py-3 font-body text-sm text-destructive line-through">{c.old_value || "—"}</td>
+                    <td className="px-4 py-3 font-body text-sm text-emerald-600 dark:text-emerald-400">{c.new_value || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Source Health */}
+        <section>
+          <h2 className="font-display text-lg font-bold text-foreground mb-3">Source Health</h2>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-card">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">University</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">Last Checked</th>
+                  <th className="px-4 py-3 text-left font-body text-xs font-semibold uppercase tracking-wide text-muted-foreground">URL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.length === 0 ? (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center font-body text-sm text-muted-foreground">No sources configured yet.</td></tr>
+                ) : sources.map((s) => (
+                  <tr key={s.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-body text-sm font-medium text-card-foreground">{s.source_name}</td>
+                    <td className="px-4 py-3 font-body text-sm text-card-foreground">{s.university_name || "—"}</td>
+                    <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 font-body text-xs font-medium ${s.last_status === "ok" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{s.last_status || "unknown"}</span></td>
+                    <td className="px-4 py-3 font-body text-xs text-muted-foreground">{s.last_checked_at ? new Date(s.last_checked_at).toLocaleString() : "—"}</td>
+                    <td className="px-4 py-3">{s.source_url ? <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-body text-xs text-primary hover:underline">Open</a> : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
