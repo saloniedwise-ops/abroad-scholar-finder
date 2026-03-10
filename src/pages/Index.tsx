@@ -8,7 +8,7 @@ import FilterBar from "@/components/FilterBar";
 import ScholarshipCard from "@/components/ScholarshipCard";
 import ScholarshipPagination from "@/components/ScholarshipPagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Globe, BookOpen, Building2, Loader2, RefreshCw } from "lucide-react";
+import { GraduationCap, Globe, BookOpen, Building2, Loader2 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 12;
 
