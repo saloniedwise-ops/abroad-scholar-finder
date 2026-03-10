@@ -21,6 +21,8 @@ export interface Scholarship {
   learn_more_url: string | null;
   featured: boolean | null;
   last_verified_at: string | null;
+  is_active: boolean;
+  public_visible: boolean;
 }
 
 export function useScholarships() {
