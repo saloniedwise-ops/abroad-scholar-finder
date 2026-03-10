@@ -20,7 +20,6 @@ const Index = () => {
   const [selectedUniversity, setSelectedUniversity] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const queryClient = useQueryClient();
   const { data: scholarships = [], isLoading, error } = useScholarships();
   const filterOptions = useFilterOptions(scholarships);
 
