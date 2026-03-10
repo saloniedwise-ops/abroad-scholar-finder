@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
