@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
@@ -7,7 +8,7 @@ import FilterBar from "@/components/FilterBar";
 import ScholarshipCard from "@/components/ScholarshipCard";
 import ScholarshipPagination from "@/components/ScholarshipPagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Globe, BookOpen, Building2, Loader2 } from "lucide-react";
+import { GraduationCap, Globe, BookOpen, Building2, Loader2, RefreshCw } from "lucide-react";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -19,7 +20,8 @@ const Index = () => {
   const [selectedUniversity, setSelectedUniversity] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: scholarships = [], isLoading, error } = useScholarships();
+  const queryClient = useQueryClient();
+  const { data: scholarships = [], isLoading, error, isFetching } = useScholarships();
   const filterOptions = useFilterOptions(scholarships);
 
   const filtered = useMemo(() => {
@@ -141,6 +143,27 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-10">
+        {/* Debug box – temporary */}
+        <div className="mb-6 rounded-md border border-border bg-muted/50 p-3 font-mono text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">Debug Info</span>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["scholarships"] })}
+              disabled={isFetching}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Refreshing…" : "Refresh Data"}
+            </button>
+          </div>
+          <p>Total loaded: {scholarships.length}</p>
+          <p>Supabase URL: {import.meta.env.VITE_SUPABASE_URL}</p>
+          {scholarships.slice(0, 5).map((s, i) => (
+            <p key={s.id}>
+              {i + 1}. {s.scholarship_name} | active: {String(s.is_active)} | public: {String(s.public_visible)}
+            </p>
+          ))}
+        </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gold" />
