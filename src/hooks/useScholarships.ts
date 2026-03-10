@@ -51,8 +51,9 @@ export function useScholarships() {
         .select("*")
         .eq("public_visible", true)
         .eq("is_active", true)
-        .order("featured", { ascending: false })
-        .order("scholarship_name");
+        .order("last_verified_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false, nullsFirst: false })
+        .order("featured", { ascending: false });
 
       if (error) throw error;
       return (data ?? []).map((s: any) => ({
@@ -73,11 +74,15 @@ export function useScholarships() {
         learn_more_url: s.learn_more_url ?? null,
         featured: s.featured ?? false,
         last_verified_at: s.last_verified_at ?? null,
+        is_active: s.is_active ?? true,
+        public_visible: s.public_visible ?? true,
       })) as Scholarship[];
-
-      if (error) throw error;
-      return data as Scholarship[];
     },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 }
 
