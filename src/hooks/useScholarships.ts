@@ -48,11 +48,32 @@ export function useScholarships() {
     queryFn: async (): Promise<Scholarship[]> => {
       const { data, error } = await supabase
         .from("scholarships")
-        .select("id, scholarship_name, scholarship_slug, university_name, country_name, country_flag, degree_level, field_category, amount_display, intake, deadline_display, description, summary, status, learn_more_url, featured, last_verified_at")
+        .select("*")
         .eq("public_visible", true)
         .eq("is_active", true)
         .order("featured", { ascending: false })
         .order("scholarship_name");
+
+      if (error) throw error;
+      return (data ?? []).map((s: any) => ({
+        id: s.id,
+        scholarship_name: s.scholarship_name ?? "",
+        scholarship_slug: s.scholarship_slug ?? null,
+        university_name: s.university_name ?? "",
+        country_name: s.country_name ?? "",
+        country_flag: s.country_flag ?? "🌍",
+        degree_level: s.degree_level ?? "",
+        field_category: s.field_category ?? "",
+        amount_display: s.amount_display ?? null,
+        intake: s.intake ?? null,
+        deadline_display: s.deadline_display ?? null,
+        description: s.description ?? null,
+        summary: s.summary ?? null,
+        status: s.status ?? null,
+        learn_more_url: s.learn_more_url ?? null,
+        featured: s.featured ?? false,
+        last_verified_at: s.last_verified_at ?? null,
+      })) as Scholarship[];
 
       if (error) throw error;
       return data as Scholarship[];
@@ -66,14 +87,34 @@ export function useScholarshipBySlug(slug: string) {
     queryFn: async (): Promise<Scholarship | null> => {
       const { data, error } = await supabase
         .from("scholarships")
-        .select("id, scholarship_name, scholarship_slug, university_name, country_name, country_flag, degree_level, field_category, amount_display, intake, deadline_display, description, summary, status, learn_more_url, featured, last_verified_at")
+        .select("*")
         .eq("scholarship_slug", slug)
         .eq("public_visible", true)
         .eq("is_active", true)
         .maybeSingle();
 
       if (error) throw error;
-      return data as Scholarship | null;
+      if (!data) return null;
+      const s: any = data;
+      return {
+        id: s.id,
+        scholarship_name: s.scholarship_name ?? "",
+        scholarship_slug: s.scholarship_slug ?? null,
+        university_name: s.university_name ?? "",
+        country_name: s.country_name ?? "",
+        country_flag: s.country_flag ?? "🌍",
+        degree_level: s.degree_level ?? "",
+        field_category: s.field_category ?? "",
+        amount_display: s.amount_display ?? null,
+        intake: s.intake ?? null,
+        deadline_display: s.deadline_display ?? null,
+        description: s.description ?? null,
+        summary: s.summary ?? null,
+        status: s.status ?? null,
+        learn_more_url: s.learn_more_url ?? null,
+        featured: s.featured ?? false,
+        last_verified_at: s.last_verified_at ?? null,
+      } as Scholarship;
     },
     enabled: !!slug,
   });
