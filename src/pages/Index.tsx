@@ -21,7 +21,7 @@ const Index = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const queryClient = useQueryClient();
-  const { data: scholarships = [], isLoading, error, isFetching } = useScholarships();
+  const { data: scholarships = [], isLoading, error } = useScholarships();
   const filterOptions = useFilterOptions(scholarships);
 
   const filtered = useMemo(() => {
