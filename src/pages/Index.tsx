@@ -143,6 +143,27 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-10">
+        {/* Debug box – temporary */}
+        <div className="mb-6 rounded-md border border-border bg-muted/50 p-3 font-mono text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">Debug Info</span>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["scholarships"] })}
+              disabled={isFetching}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Refreshing…" : "Refresh Data"}
+            </button>
+          </div>
+          <p>Total loaded: {scholarships.length}</p>
+          <p>Supabase URL: {import.meta.env.VITE_SUPABASE_URL}</p>
+          {scholarships.slice(0, 5).map((s, i) => (
+            <p key={s.id}>
+              {i + 1}. {s.scholarship_name} | active: {String(s.is_active)} | public: {String(s.public_visible)}
+            </p>
+          ))}
+        </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gold" />
