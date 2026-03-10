@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
@@ -116,6 +117,7 @@ const Index = () => {
             <a href="#" className="transition-colors hover:text-gold">Countries</a>
             <a href="#" className="transition-colors hover:text-gold">Universities</a>
             <a href="#" className="transition-colors hover:text-gold">Resources</a>
+            <Link to="/monitoring" className="transition-colors hover:text-gold">Monitoring</Link>
           </nav>
         </div>
       </header>
