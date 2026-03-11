@@ -12,7 +12,7 @@ interface Props {
   onQuickFiltersChange: (filters: QuickFilterType[]) => void;
 }
 
-const FilterBar = ({ selectedQuickFilters, onQuickFiltersChange }: Props) => {
+const FilterBar = ({ selectedQuickFilters = [], onQuickFiltersChange }: Props) => {
   const toggle = (key: QuickFilterType) => {
     if (selectedQuickFilters.includes(key)) {
       onQuickFiltersChange(selectedQuickFilters.filter((f) => f !== key));
