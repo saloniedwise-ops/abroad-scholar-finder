@@ -8,7 +8,6 @@ interface HeroSectionProps {
 const HeroSection = ({ searchQuery, onSearchChange }: HeroSectionProps) => {
   return (
     <section className="bg-hero relative overflow-hidden py-20 md:py-28">
-      {/* Decorative elements */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-10 left-10 h-64 w-64 rounded-full bg-gold blur-3xl" />
         <div className="absolute bottom-10 right-20 h-48 w-48 rounded-full bg-gold-light blur-3xl" />
