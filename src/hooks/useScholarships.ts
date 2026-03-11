@@ -1,7 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 
 export interface Scholarship {
   id: string;
@@ -15,14 +14,36 @@ export interface Scholarship {
   amount_display: string | null;
   intake: string | null;
   deadline_display: string | null;
+  deadline_date?: string | null;
   description: string | null;
   summary: string | null;
   status: string | null;
   learn_more_url: string | null;
   featured: boolean | null;
   last_verified_at: string | null;
-  is_active: boolean;
-  public_visible: boolean;
+}
+
+function normalizeScholarship(row: any): Scholarship {
+  return {
+    id: row.id,
+    scholarship_name: row.scholarship_name ?? "Untitled Scholarship",
+    scholarship_slug: row.scholarship_slug ?? null,
+    university_name: row.university_name ?? "Unknown University",
+    country_name: row.country_name ?? "Unknown Country",
+    country_flag: row.country_flag ?? "🌍",
+    degree_level: row.degree_level ?? "General",
+    field_category: row.field_category ?? "General",
+    amount_display: row.amount_display ?? null,
+    intake: row.intake ?? null,
+    deadline_display: row.deadline_display ?? null,
+    deadline_date: row.deadline_date ?? null,
+    description: row.description ?? null,
+    summary: row.summary ?? null,
+    status: row.status ?? "Active",
+    learn_more_url: row.learn_more_url ?? null,
+    featured: row.featured ?? false,
+    last_verified_at: row.last_verified_at ?? null,
+  };
 }
 
 export function useScholarships() {
@@ -58,27 +79,7 @@ export function useScholarships() {
         .order("featured", { ascending: false });
 
       if (error) throw error;
-      return (data ?? []).map((s: any) => ({
-        id: s.id,
-        scholarship_name: s.scholarship_name ?? "",
-        scholarship_slug: s.scholarship_slug ?? null,
-        university_name: s.university_name ?? "",
-        country_name: s.country_name ?? "",
-        country_flag: s.country_flag ?? "🌍",
-        degree_level: s.degree_level ?? "",
-        field_category: s.field_category ?? "",
-        amount_display: s.amount_display ?? null,
-        intake: s.intake ?? null,
-        deadline_display: s.deadline_display ?? null,
-        description: s.description ?? null,
-        summary: s.summary ?? null,
-        status: s.status ?? null,
-        learn_more_url: s.learn_more_url ?? null,
-        featured: s.featured ?? false,
-        last_verified_at: s.last_verified_at ?? null,
-        is_active: s.is_active ?? true,
-        public_visible: s.public_visible ?? true,
-      })) as Scholarship[];
+      return (data ?? []).map(normalizeScholarship);
     },
     staleTime: 0,
     gcTime: 0,
@@ -102,26 +103,7 @@ export function useScholarshipBySlug(slug: string) {
 
       if (error) throw error;
       if (!data) return null;
-      const s: any = data;
-      return {
-        id: s.id,
-        scholarship_name: s.scholarship_name ?? "",
-        scholarship_slug: s.scholarship_slug ?? null,
-        university_name: s.university_name ?? "",
-        country_name: s.country_name ?? "",
-        country_flag: s.country_flag ?? "🌍",
-        degree_level: s.degree_level ?? "",
-        field_category: s.field_category ?? "",
-        amount_display: s.amount_display ?? null,
-        intake: s.intake ?? null,
-        deadline_display: s.deadline_display ?? null,
-        description: s.description ?? null,
-        summary: s.summary ?? null,
-        status: s.status ?? null,
-        learn_more_url: s.learn_more_url ?? null,
-        featured: s.featured ?? false,
-        last_verified_at: s.last_verified_at ?? null,
-      } as Scholarship;
+      return normalizeScholarship(data);
     },
     enabled: !!slug,
   });
