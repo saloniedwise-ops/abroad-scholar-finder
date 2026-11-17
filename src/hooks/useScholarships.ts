@@ -21,6 +21,20 @@ export interface Scholarship {
   learn_more_url: string | null;
   featured: boolean | null;
   last_verified_at: string | null;
+  // Rich details filled by the crawler (all optional)
+  deadline_type: string | null; // fixed | rolling | automatic | varies | closed | not_published
+  deadline_inferred: boolean;
+  opens_date: string | null;
+  eligibility: string | null;
+  requirements: string | null;
+  how_to_apply: string | null;
+  application_url: string | null;
+  award_type: string | null;
+  number_of_awards: string | null;
+  nationality: string | null;
+  amount_value: number | null;
+  amount_currency: string | null;
+  source_url: string | null;
 }
 
 // A raw database row: the live table has more (and different) columns than the generated types.
@@ -84,6 +98,19 @@ function normalizeScholarship(row: Row): Scholarship {
     learn_more_url: row.learn_more_url ?? null,
     featured: row.featured ?? false,
     last_verified_at: row.last_verified_at ?? null,
+    deadline_type: row.deadline_type ?? null,
+    deadline_inferred: row.deadline_inferred ?? false,
+    opens_date: row.opens_date ?? null,
+    eligibility: row.eligibility ?? null,
+    requirements: row.requirements ?? null,
+    how_to_apply: row.how_to_apply ?? null,
+    application_url: row.application_url ?? null,
+    award_type: row.award_type ?? null,
+    number_of_awards: row.number_of_awards ?? null,
+    nationality: row.nationality ?? null,
+    amount_value: row.amount_value ?? null,
+    amount_currency: row.amount_currency ?? null,
+    source_url: row.source_url ?? null,
   };
 }
 

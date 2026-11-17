@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Scholarship } from "@/hooks/useScholarships";
+import { daysUntil, deadlineLabel, getDeadlineDate } from "@/lib/deadline";
 import { VerificationBadge } from "@/components/VerificationBadge";
 
 interface ScholarshipCardProps {
@@ -18,37 +19,6 @@ interface ScholarshipCardProps {
   onToggleSaved?: (id: string) => void;
 }
 
-const parseDeadlineDate = (scholarship: Scholarship): Date | null => {
-  if (scholarship.deadline_date) {
-    const exact = new Date(scholarship.deadline_date);
-    if (!isNaN(exact.getTime())) return exact;
-  }
-  const rawDisplay = scholarship.deadline_display;
-
-  if (!rawDisplay) return null;
-
-  const cleaned = rawDisplay
-    .replace(/(\d+)(st|nd|rd|th)/gi, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const parsed = new Date(cleaned);
-  if (!isNaN(parsed.getTime())) return parsed;
-
-  return null;
-};
-
-const getDaysUntil = (date: Date | null) => {
-  if (!date) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const target = new Date(date);
-  target.setHours(0, 0, 0, 0);
-
-  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-};
 
 const isRecentlyUpdated = (lastVerifiedAt?: string | null) => {
   if (!lastVerifiedAt) return false;
@@ -74,13 +44,12 @@ const isHighValueScholarship = (amount?: string | null) => {
 };
 
 const getDeadlineBadge = (scholarship: Scholarship) => {
-  const deadlineDate = parseDeadlineDate(scholarship);
-  const daysUntil = getDaysUntil(deadlineDate);
+  const daysUntilDeadline = daysUntil(getDeadlineDate(scholarship));
 
-  if (daysUntil === null) return null;
-  if (daysUntil < 0) return null;
-  if (daysUntil <= 7) return { label: `Closes in ${daysUntil}d`, urgent: true };
-  if (daysUntil <= 14) return { label: "Closing Soon", urgent: false };
+  if (daysUntilDeadline === null) return null;
+  if (daysUntilDeadline < 0) return null;
+  if (daysUntilDeadline <= 7) return { label: `Closes in ${daysUntilDeadline}d`, urgent: true };
+  if (daysUntilDeadline <= 14) return { label: "Closing Soon", urgent: false };
 
   return null;
 };
@@ -200,7 +169,7 @@ const ScholarshipCard = ({
             </p>
             <p className="flex items-center gap-1 font-body text-sm font-medium text-card-foreground">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              {scholarship.deadline_display || "Not confirmed, check official page"}
+              {deadlineLabel(scholarship)}
             </p>
           </div>
         </div>

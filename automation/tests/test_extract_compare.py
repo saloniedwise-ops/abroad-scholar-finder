@@ -45,3 +45,20 @@ def test_skip_search_and_mailto():
     assert skip_reason("https://www.google.com/search?q=x")
     assert skip_reason("mailto:a@b.c")
     assert skip_reason("https://www.aston.ac.uk/x") is None
+
+
+def test_cleaning_never_wipes_a_page_wrapped_in_a_form():
+    body = "<p>" + ("GREAT scholarship worth £10,000. Deadline 5 June 2027. " * 60) + "</p>"
+    html = f"<html><body><form id='aspnetForm'>{body}</form></body></html>"
+    text = extract_text(html)
+    assert "GREAT scholarship" in text and len(text) > 1000
+
+
+def test_small_widgets_and_nav_are_still_removed():
+    html = "<body><nav>Home About</nav><form><input></form><main><p>Real content here</p></main></body>"
+    assert extract_text(html) == "Real content here"
+
+
+def test_user_agent_is_honest_and_single():
+    from fetcher import USER_AGENT
+    assert "ScholarshipMonitor" in USER_AGENT and "Chrome" not in USER_AGENT

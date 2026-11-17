@@ -45,8 +45,8 @@ def get_latest_snapshots() -> dict[str, dict]:
 
 def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
     """Map source id -> scholarship rows linked through legacy_source_value (slug or URL)."""
-    cols = ("id,scholarship_name,university_name,legacy_source_value,deadline_date,"
-            "deadline_display,amount_display,status")
+    cols = ("id,scholarship_name,scholarship_slug,university_name,legacy_source_value,deadline_date,"
+            "deadline_display,deadline_type,amount_display,status,degree_level,field_category,summary")
     rows: list[dict] = []
     start = 0
     while True:
@@ -56,6 +56,8 @@ def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
         if len(page) < 1000:
             break
         start += 1000
+    global _ALL_SLUGS
+    _ALL_SLUGS = {r["scholarship_slug"] for r in rows if r.get("scholarship_slug")}
     by_key: dict[str, list[dict]] = {}
     for r in rows:
         by_key.setdefault(r.get("legacy_source_value") or "", []).append(r)
@@ -64,6 +66,36 @@ def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
         linked = list(by_key.get(s.get("source_slug") or "\0", [])) + list(by_key.get(s.get("source_url") or "\0", []))
         out[s["id"]] = linked
     return out
+
+
+_ALL_SLUGS: set[str] = set()
+
+
+def unique_slug(base: str) -> str:
+    slug, n = base, 2
+    while slug in _ALL_SLUGS:
+        slug, n = f"{base}-{n}", n + 1
+    _ALL_SLUGS.add(slug)
+    return slug
+
+
+def insert_scholarship(row: dict) -> None:
+    _write(f"new scholarship {row.get('scholarship_name')!r}",
+           lambda: supabase.table("scholarships").insert(row).execute())
+
+
+def get_approved_suggestions() -> list[dict]:
+    return (supabase.table("source_url_suggestions").select("*").eq("status", "approved").execute().data or [])
+
+
+def apply_suggestion(suggestion: dict) -> None:
+    """Point a source at its approved real URL and make it crawlable again."""
+    _write(f"apply suggestion {suggestion['candidate_url']}", lambda: (
+        supabase.table("scholarship_sources")
+        .update({"source_url": suggestion["candidate_url"], "last_status": None, "monitor_enabled": True,
+                 "is_active": True, "source_type": "Official URL"}).eq("id", suggestion["source_id"]).execute(),
+        supabase.table("source_url_suggestions").update({"status": "applied"})
+        .eq("id", suggestion["id"]).execute()))
 
 
 def update_source_status(source_id: str, status: str) -> None:

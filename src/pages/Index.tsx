@@ -4,6 +4,7 @@ import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import { useSavedScholarships } from "@/hooks/useSavedScholarships";
 import type { Scholarship } from "@/hooks/useScholarships";
 import HeroSection from "@/components/HeroSection";
+import { daysUntil, getDeadlineDate } from "@/lib/deadline";
 import FilterBar, { type QuickFilterType, type SortOption } from "@/components/FilterBar";
 import ScholarshipCard from "@/components/ScholarshipCard";
 import ScholarshipPagination from "@/components/ScholarshipPagination";
@@ -22,36 +23,9 @@ import {
 
 const ITEMS_PER_PAGE = 12;
 
-const parseDeadlineDate = (scholarship: Scholarship): Date | null => {
-  const rawDisplay = scholarship.deadline_display;
-  if (!rawDisplay) return null;
-
-  const cleaned = rawDisplay
-    .replace(/(\d+)(st|nd|rd|th)/gi, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const parsed = new Date(cleaned);
-  if (!isNaN(parsed.getTime())) return parsed;
-
-  return null;
-};
-
-const daysUntil = (date: Date | null) => {
-  if (!date) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const target = new Date(date);
-  target.setHours(0, 0, 0, 0);
-
-  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-};
 
 const isClosingSoon = (scholarship: Scholarship) => {
-  const deadline = parseDeadlineDate(scholarship);
-  const diff = daysUntil(deadline);
+  const diff = daysUntil(getDeadlineDate(scholarship));
   return diff !== null && diff >= 0 && diff <= 14;
 };
 
@@ -78,8 +52,8 @@ const isHighValue = (scholarship: Scholarship) => {
 
 const sortByNearestDeadline = (items: Scholarship[]) => {
   return [...items].sort((a, b) => {
-    const aDate = parseDeadlineDate(a);
-    const bDate = parseDeadlineDate(b);
+    const aDate = getDeadlineDate(a);
+    const bDate = getDeadlineDate(b);
 
     if (!aDate && !bDate) return 0;
     if (!aDate) return 1;

@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useScholarshipBySlug } from "@/hooks/useScholarships";
 import { VerificationBadge } from "@/components/VerificationBadge";
+import { deadlineLabel } from "@/lib/deadline";
 import {
   GraduationCap,
   MapPin,
@@ -47,9 +48,21 @@ const ScholarshipDetail = () => {
     { icon: <Building2 className="h-4 w-4" />, label: "University", value: scholarship.university_name },
     { icon: <BookOpen className="h-4 w-4" />, label: "Degree Level", value: scholarship.degree_level },
     { icon: <GraduationCap className="h-4 w-4" />, label: "Field", value: scholarship.field_category },
-    { icon: <Calendar className="h-4 w-4" />, label: "Deadline", value: scholarship.deadline_display || "Not specified" },
+    { icon: <Calendar className="h-4 w-4" />, label: "Deadline", value: deadlineLabel(scholarship) },
     { icon: <Clock className="h-4 w-4" />, label: "Intake", value: scholarship.intake || "Not specified" },
+    ...(scholarship.opens_date
+      ? [{ icon: <Calendar className="h-4 w-4" />, label: "Applications open", value: new Date(scholarship.opens_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) }]
+      : []),
+    ...(scholarship.award_type ? [{ icon: <GraduationCap className="h-4 w-4" />, label: "Award type", value: scholarship.award_type }] : []),
+    ...(scholarship.number_of_awards ? [{ icon: <GraduationCap className="h-4 w-4" />, label: "Number of awards", value: scholarship.number_of_awards }] : []),
+    ...(scholarship.nationality ? [{ icon: <Globe className="h-4 w-4" />, label: "Open to", value: scholarship.nationality }] : []),
   ];
+
+  const detailSections = [
+    { title: "Eligibility", text: scholarship.eligibility },
+    { title: "How to apply", text: scholarship.how_to_apply },
+    { title: "Requirements", text: scholarship.requirements },
+  ].filter((s) => s.text);
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,6 +140,13 @@ const ScholarshipDetail = () => {
                 </section>
               )}
 
+              {detailSections.map((s) => (
+                <section key={s.title} className="rounded-xl border border-border bg-card p-6 shadow-card">
+                  <h2 className="mb-4 font-display text-xl font-bold text-card-foreground">{s.title}</h2>
+                  <p className="font-body text-sm leading-relaxed text-card-foreground/80 whitespace-pre-line">{s.text}</p>
+                </section>
+              ))}
+
               {/* Description */}
               {scholarship.description && (
                 <section className="rounded-xl border border-border bg-card p-6 shadow-card">
@@ -175,6 +195,17 @@ const ScholarshipDetail = () => {
               </div>
 
               {/* CTA */}
+              {scholarship.application_url && (
+                <a
+                  href={scholarship.application_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-6 py-4 font-body text-sm font-semibold text-accent-foreground shadow-card transition-all hover:shadow-card-hover hover:brightness-105"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Apply on the university site
+                </a>
+              )}
               {scholarship.learn_more_url && scholarship.learn_more_url !== "#" && (
                 <a
                   href={scholarship.learn_more_url}

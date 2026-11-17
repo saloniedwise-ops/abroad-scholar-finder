@@ -11,8 +11,13 @@ import re
 
 from bs4 import BeautifulSoup
 
-CHROME_TAGS = ["script", "style", "noscript", "header", "footer", "nav", "aside",
-               "form", "iframe", "svg", "button", "select"]
+# Always noise, whatever their size.
+CHROME_TAGS = ["script", "style", "noscript", "iframe", "svg", "button", "select"]
+# Page furniture, but some sites wrap the WHOLE page in these (e.g. ASP.NET puts everything in
+# <form>), so they are only removed when small.
+SOFT_CHROME_TAGS = ["header", "footer", "nav", "aside", "form"]
+SOFT_LIMIT = 1500  # characters of text
+MIN_KEEP_RATIO = 0.35  # never let cleaning throw away most of the page
 CHROME_HINT = re.compile(
     r"cookie|consent|banner|breadcrumb|menu|nav|footer|social|share|newsletter|"
     r"modal|popup|skip", re.I)
@@ -31,11 +36,15 @@ def normalize_text(text: str) -> str:
 
 def extract_text(html: str, css_selector: str | None = None) -> str:
     soup = BeautifulSoup(html, "lxml")
+    raw_len = len(soup.get_text(" ", strip=True))
     for tag in soup(CHROME_TAGS):
         tag.decompose()
-    for node in soup.find_all(attrs={"class": CHROME_HINT}) + soup.find_all(attrs={"id": CHROME_HINT}):
-        # Never remove the whole document just because <body class="...nav..."> matched.
-        if node.name not in ("html", "body", "main", "article"):
+    candidates = soup.find_all(SOFT_CHROME_TAGS) + soup.find_all(attrs={"class": CHROME_HINT}) \
+        + soup.find_all(attrs={"id": CHROME_HINT})
+    for node in candidates:
+        if node.decomposed or node.name in ("html", "body", "main", "article"):
+            continue
+        if len(node.get_text(" ", strip=True)) <= SOFT_LIMIT:  # small widget, not the page itself
             node.decompose()
 
     if css_selector:
@@ -43,7 +52,14 @@ def extract_text(html: str, css_selector: str | None = None) -> str:
         if node:
             return normalize_text(node.get_text("\n", strip=True))
     node = soup.find("main") or soup.find("article") or soup.body or soup
-    return normalize_text(node.get_text("\n", strip=True))
+    text = normalize_text(node.get_text("\n", strip=True))
+    if raw_len and len(text) < raw_len * MIN_KEEP_RATIO:
+        # Cleaning removed most of the page: prefer complete-but-noisy over empty.
+        fallback = BeautifulSoup(html, "lxml")
+        for tag in fallback(["script", "style", "noscript", "svg"]):
+            tag.decompose()
+        text = normalize_text((fallback.body or fallback).get_text("\n", strip=True))
+    return text
 
 
 def stable_text(text: str) -> str:
