@@ -32,7 +32,13 @@ def listable(r: dict) -> bool:
         return False
     if (r.get("learn_more_url") or "").lower().startswith("mailto:"):
         return False
-    return not (r.get("deadline_date") and r["deadline_date"] < today)
+    if r.get("deadline_date") and r["deadline_date"] < today:
+        return False
+    verified = r.get("last_verified_at")
+    if not verified:
+        return False
+    age = datetime.now(timezone.utc) - datetime.fromisoformat(verified.replace("Z", "+00:00"))
+    return age.days <= 45
 
 
 rows = [r for r in rows if listable(r)]
