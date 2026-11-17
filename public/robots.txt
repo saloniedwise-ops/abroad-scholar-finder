@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://scholarshipfinder-scholarglobe.lovable.app/sitemap.xml

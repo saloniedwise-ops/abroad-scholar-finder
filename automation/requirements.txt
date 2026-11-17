@@ -1,5 +1,6 @@
-requests
-beautifulsoup4
-lxml
-python-dotenv
-supabase
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+python-dotenv>=1.0
+supabase>=2.0
+pytest>=8.0

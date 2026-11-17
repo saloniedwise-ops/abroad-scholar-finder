@@ -1,13 +1,14 @@
-from datetime import date
+from datetime import datetime, timezone
 import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from supabase import create_client
-from config import SUPABASE_URL, SUPABASE_ANON_KEY
+import config
 
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+config.require_supabase()
+supabase = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
 
 SENDER_EMAIL = os.getenv("ALERT_SENDER_EMAIL", "")
 SENDER_APP_PASSWORD = os.getenv("ALERT_SENDER_APP_PASSWORD", "")
@@ -15,13 +16,13 @@ RECIPIENT_EMAIL = os.getenv("ALERT_RECIPIENT_EMAIL", "")
 
 
 def get_today_changes():
-    today = str(date.today())
+    today = datetime.now(timezone.utc).date().isoformat()
 
     response = (
         supabase.table("scholarship_changes")
         .select("*")
-        .gte("detected_at", f"{today}T00:00:00")
-        .lte("detected_at", f"{today}T23:59:59")
+        .gte("detected_at", f"{today}T00:00:00+00:00")
+        .lte("detected_at", f"{today}T23:59:59+00:00")
         .execute()
     )
     return response.data or []
@@ -34,6 +35,7 @@ def build_summary(changes):
     grouped = {
         "added": [],
         "removed": [],
+        "modified": [],
         "deadline_changed": [],
         "amount_changed": [],
     }
@@ -51,6 +53,7 @@ def build_summary(changes):
     for key, title in [
         ("added", "Added"),
         ("removed", "Removed"),
+        ("modified", "Page Content Updated"),
         ("deadline_changed", "Deadline Changed"),
         ("amount_changed", "Amount Changed"),
     ]:
@@ -88,7 +91,7 @@ def main():
     print(summary_text)
     print("\n====================================\n")
 
-    subject = f"Scholarship Monitor Update - {date.today()}"
+    subject = f"Scholarship Monitor Update - {datetime.now(timezone.utc).date()}"
     send_email(subject, summary_text)
     print("Email sent successfully.")
 

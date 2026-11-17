@@ -4,10 +4,23 @@ on:
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print writes instead of saving them"
+        type: boolean
+        default: false
+      rebaseline:
+        description: "Save fresh snapshots without logging 'modified' (run once after changing text cleaning)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # lets the sitemap step commit public/sitemap.xml
 
 jobs:
   crawl-and-email:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -17,26 +30,48 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: automation/requirements.txt
 
       - name: Install dependencies
-        run: |
-          cd automation
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r automation/requirements.txt
+
+      - name: Unit tests
+        run: cd automation && python -m pytest -q tests
 
       - name: Run crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Fallback so the job keeps working until SUPABASE_SERVICE_KEY is added.
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          python automation/crawler.py
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          REBASELINE: ${{ inputs.rebaseline && '1' || '' }}
+        run: cd automation && python crawler.py
 
       - name: Send email summary
+        if: ${{ always() && !inputs.dry_run }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           ALERT_SENDER_EMAIL: ${{ secrets.ALERT_SENDER_EMAIL }}
           ALERT_SENDER_APP_PASSWORD: ${{ secrets.ALERT_SENDER_APP_PASSWORD }}
           ALERT_RECIPIENT_EMAIL: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
+        run: cd automation && python send_email_summary.py
+
+      - name: Generate sitemap
+        if: ${{ !inputs.dry_run }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SITE_URL: https://scholarshipfinder-scholarglobe.lovable.app
         run: |
-          python automation/send_email_summary.py
+          python automation/generate_sitemap.py
+          if ! git diff --quiet -- public/sitemap.xml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add public/sitemap.xml
+            git commit -m "chore: refresh sitemap"
+            git push
+          fi
