@@ -5,6 +5,7 @@ scholarship on the page -> match to known scholarships -> update / add them -> r
 """
 from __future__ import annotations
 
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -12,7 +13,7 @@ from datetime import date
 import config
 from compare import compare_text, extract_text
 from fetcher import FetchResult, fetch, new_session
-from matching import match_records, slugify
+from matching import match_records, normalize_name, slugify
 from parse_scholarships import NAME_WORDS, parse_page
 
 # Columns copied from a parsed record. "fill" = only when the database value is empty
@@ -22,6 +23,11 @@ SET_FIELDS = ["amount_display", "amount_value", "amount_currency", "eligibility"
               "opens_date"]
 FILL_FIELDS = ["degree_level", "field_category", "summary"]
 MAX_NEW_PER_SOURCE = 40
+# Page chrome, not an actual scholarship name.
+GENERIC_NAME = re.compile(
+    r"^(scholarships?|international scholarships?|scholarships? for international students|"
+    r"fees (and|&) funding|scholarships? (and|&) (financial aid|funding)(\s*[-\u2013].*)?|"
+    r"funding|financial aid|scholarships? and bursaries)$", re.I)
 
 
 def fetch_source(source: dict) -> tuple[dict, FetchResult, str, list[dict]]:
@@ -65,7 +71,8 @@ def build_updates(rec: dict, row: dict, source: dict, today: date) -> dict:
     return up
 
 
-def process_page(source: dict, records: list[dict], linked: list[dict], today: date) -> dict:
+def process_page(source: dict, records: list[dict], linked: list[dict], today: date,
+               known_names: set[tuple[str, str]]) -> dict:
     import db
 
     stats = {"matched": 0, "updated_fields": 0, "added": 0}
@@ -95,7 +102,15 @@ def process_page(source: dict, records: list[dict], linked: list[dict], today: d
         if added >= MAX_NEW_PER_SOURCE:
             break
         name = rec["name"]
-        if len(name) < 8 or not NAME_WORDS.search(name) or rec["confidence"] < 0.4:
+        norm = normalize_name(name)
+        # Generic headings ("Scholarships", "International Scholarships") and entries we
+        # already have under this university must not become new scholarships.
+        if (len(name) < 8 or not NAME_WORDS.search(name) or rec["confidence"] < 0.4
+                or GENERIC_NAME.match(name.strip()) or len(norm) < 6):
+            print(f"skip-name {name!r} ({uni})")
+            continue
+        if (uni, norm) in known_names:
+            print(f"skip-dup {name!r} ({uni})")
             continue
         row = {
             "scholarship_name": name, "scholarship_slug": db.unique_slug(slugify(f"{uni} {name}")),
@@ -112,6 +127,7 @@ def process_page(source: dict, records: list[dict], linked: list[dict], today: d
         db.insert_scholarship(row)
         db.insert_change(source["id"], uni, "added", f"New scholarship found: {name} ({uni})",
                          "scholarship_name", None, name, None, name)
+        known_names.add((uni, norm))
         added += 1
     stats["added"] = added
     db.mark_verified(verified)
@@ -142,6 +158,9 @@ def run() -> int:
 
     latest = db.get_latest_snapshots()
     linked_map = db.get_scholarships_by_source(sources)
+    # Global dedupe: (university, normalized name) pairs already in the database.
+    known_names = {(r.get("university_name") or "", normalize_name(r.get("scholarship_name")))
+                   for r in db.all_scholarships()}
     stats = {"ok": 0, "changed": 0, "failed": 0, "skipped": 0, "matched": 0, "updated_fields": 0, "added": 0}
 
     with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as pool:
@@ -168,7 +187,7 @@ def run() -> int:
                         db.insert_change(source["id"], source.get("university_name") or "", "modified",
                                          f"Scholarship page updated for {name}", "page_content",
                                          cmp["old_text"][:1000], cmp["new_text"][:1000])
-                page = process_page(source, records, linked_map.get(source["id"], []), today)
+                page = process_page(source, records, linked_map.get(source["id"], []), today, known_names)
                 for k in ("matched", "updated_fields", "added"):
                     stats[k] += page[k]
                 print(f"ok     {name}: {len(records)} found, {page['matched']} matched, {page['added']} new")

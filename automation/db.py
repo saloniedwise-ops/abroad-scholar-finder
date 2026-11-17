@@ -56,8 +56,9 @@ def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
         if len(page) < 1000:
             break
         start += 1000
-    global _ALL_SLUGS
+    global _ALL_SLUGS, _ALL_ROWS
     _ALL_SLUGS = {r["scholarship_slug"] for r in rows if r.get("scholarship_slug")}
+    _ALL_ROWS = rows
     by_key: dict[str, list[dict]] = {}
     for r in rows:
         by_key.setdefault(r.get("legacy_source_value") or "", []).append(r)
@@ -69,6 +70,12 @@ def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
 
 
 _ALL_SLUGS: set[str] = set()
+_ALL_ROWS: list[dict] = []
+
+
+def all_scholarships() -> list[dict]:
+    """Every scholarship row fetched by get_scholarships_by_source (call that first)."""
+    return _ALL_ROWS
 
 
 def unique_slug(base: str) -> str:

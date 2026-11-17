@@ -56,6 +56,13 @@ MONEY = re.compile(
     r"(?P<cur>£|€|US\$|AU\$|CA\$|A\$|C\$|\$|USD|GBP|EUR|AUD|CAD)\s?(?P<num>\d[\d,]*(?:\.\d+)?)\s?(?P<k>[kK]\b)?"
     r"(?P<per>\s?(?:per (?:year|annum|month|semester)|a year|p\.a\.|/year|each year))?")
 PERCENT = re.compile(r"\b(\d{1,3})\s?% (?:of )?(?:the )?(?:tuition|fee|fees|discount|off)", re.I)
+# A fund total spread across many awards is not one scholarship's value, e.g.
+# "we are awarding over \u00a3500,000 in merit scholarships". Skip such lines for amount.
+AGGREGATE_MONEY = re.compile(
+    r"(award(?:ing|ed)?|provid\w+|invest\w+|commit\w*|allocat\w*|worth|tota?l\w*|collectively)"
+    r"\b[^.]{0,60}(?:over|more than|nearly|almost|up to)?\s*"
+    r"(?:\u00a3|\u20ac|\$|USD|GBP|EUR|AUD|CAD)\s?\d[\d,]*(?:\.\d+)?\s*(?:million\b|[kK]\b)?[^.]{0,50}\b"
+    r"(?:in|across|among|between)\b[^.]{0,40}\b(?:scholarships?|bursaries|awards?|grants?)\b", re.I)
 
 DEGREE_PATTERNS = [
     ("Undergraduate", re.compile(r"(undergraduate|bachelor|first degree|\bBA\b|\bBSc\b|\bUG\b)", re.I)),
@@ -212,6 +219,8 @@ def _amount(text: str) -> dict:
         if not re.search(r"(award|scholarship|bursary|worth|value|amount|tuition|fee|funding|grant|£|€|\$)", line, re.I):
             continue
         m = MONEY.search(line)
+        if m and AGGREGATE_MONEY.search(line):
+            continue  # fund/pool total, not a per-award amount
         if m:
             num = float(m.group("num").replace(",", ""))
             if m.group("k"):
