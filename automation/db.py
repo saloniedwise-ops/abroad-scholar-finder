@@ -46,7 +46,8 @@ def get_latest_snapshots() -> dict[str, dict]:
 def get_scholarships_by_source(sources: list[dict]) -> dict[str, list[dict]]:
     """Map source id -> scholarship rows linked through legacy_source_value (slug or URL)."""
     cols = ("id,scholarship_name,scholarship_slug,university_name,legacy_source_value,deadline_date,"
-            "deadline_display,deadline_type,amount_display,status,degree_level,field_category,summary")
+            "deadline_display,deadline_type,amount_display,amount_value,amount_currency,status,"
+            "degree_level,field_category,summary")
     rows: list[dict] = []
     start = 0
     while True:

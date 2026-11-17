@@ -29,6 +29,53 @@ GENERIC_NAME = re.compile(
     r"fees (and|&) funding|scholarships? (and|&) (financial aid|funding)(\s*[-\u2013].*)?|"
     r"funding|financial aid|scholarships? and bursaries)$", re.I)
 
+# Award described as covering everything (tuition / full funding).
+FULL_FUNDING = re.compile(
+    r"\b(fully?[\s-]?(funded|tuition|ride)|100%\s*(of\s*)?tuition|full\s+(tuition\s+)?scholarship)\b", re.I)
+
+AMOUNT_FIELDS = ("amount_display", "amount_value", "amount_currency")
+DEADLINE_FIELDS = ("deadline_type", "deadline_display", "deadline_inferred", "deadline_date", "status")
+
+
+def sanity_check_updates(up: dict, row: dict) -> tuple[dict, list[tuple[str, object, object, str]]]:
+    """Split proposed updates into safe-to-apply and needs-human-review.
+
+    A flagged change is withheld from the scholarship row and recorded as a
+    "needs_review" change instead: the crawler never applies an implausible
+    amount swing or a deadline-quality downgrade on its own."""
+    safe = dict(up)
+    flagged: list[tuple[str, object, object, str]] = []
+
+    def withhold(fields, reason):
+        for f in fields:
+            if f in safe:
+                flagged.append((f, row.get(f), safe.pop(f), reason))
+
+    new_disp = up.get("amount_display")
+    if new_disp and new_disp != row.get("amount_display"):
+        old_val, new_val = row.get("amount_value"), up.get("amount_value")
+        reason = None
+        if old_val and new_val:
+            if (up.get("amount_currency") and row.get("amount_currency")
+                    and up["amount_currency"] != row["amount_currency"]):
+                reason = f"currency change {row['amount_currency']} -> {up['amount_currency']}"
+            elif new_val < 0.25 * old_val:
+                reason = f"amount drop of over 75% ({old_val} -> {new_val})"
+            elif new_val > 20 * old_val:
+                reason = f"amount jump of over 20x ({old_val} -> {new_val})"
+        if (reason is None and new_val and new_val < 1000
+                and FULL_FUNDING.search(row.get("amount_display") or "")):
+            reason = f"full-funding award became a small fixed sum ({new_disp})"
+        if reason:
+            withhold(AMOUNT_FIELDS, reason)
+
+    if (row.get("deadline_type") in ("fixed", "rolling")
+            and up.get("deadline_type") == "varies"):
+        withhold(DEADLINE_FIELDS,
+                 f"deadline quality downgrade {row['deadline_type']} -> {up['deadline_type']}")
+
+    return safe, flagged
+
 
 def fetch_source(source: dict) -> tuple[dict, FetchResult, str, list[dict]]:
     """Network + parsing step, safe to run in a worker thread."""
@@ -75,26 +122,33 @@ def process_page(source: dict, records: list[dict], linked: list[dict], today: d
                known_names: set[tuple[str, str]]) -> dict:
     import db
 
-    stats = {"matched": 0, "updated_fields": 0, "added": 0}
+    stats = {"matched": 0, "updated_fields": 0, "added": 0, "flagged": 0}
     uni = source.get("university_name") or ""
     pairs, unmatched = match_records(records, linked)
 
     verified: list[str] = []
     for rec, row in pairs:
         up = build_updates(rec, row, source, today)
+        safe, flagged = sanity_check_updates(up, row)
         stats["matched"] += 1
         verified.append(row["id"])
-        new_dd, old_dd = up.get("deadline_date"), row.get("deadline_date")
+        for field, old, new, reason in flagged:
+            db.insert_change(source["id"], uni, "needs_review",
+                             f"Review {row['scholarship_name']}: {reason} ({old} -> {new})",
+                             field, old, new, row["id"], row["scholarship_name"])
+            stats["flagged"] += 1
+            print(f"flag-review {row['scholarship_name']!r} {field}: {old!r} -> {new!r} ({reason})")
+        new_dd, old_dd = safe.get("deadline_date"), row.get("deadline_date")
         if new_dd and new_dd != old_dd:
             db.insert_change(source["id"], uni, "deadline_changed",
-                             f"Deadline for {row['scholarship_name']}: {row.get('deadline_display') or 'unknown'} -> {up['deadline_display']}",
+                             f"Deadline for {row['scholarship_name']}: {row.get('deadline_display') or 'unknown'} -> {safe['deadline_display']}",
                              "deadline_date", old_dd, new_dd, row["id"], row["scholarship_name"])
-        if up.get("amount_display") and up["amount_display"] != row.get("amount_display"):
+        if safe.get("amount_display") and safe["amount_display"] != row.get("amount_display"):
             db.insert_change(source["id"], uni, "amount_changed",
-                             f"Amount for {row['scholarship_name']}: {row.get('amount_display') or 'unknown'} -> {up['amount_display']}",
-                             "amount_display", row.get("amount_display"), up["amount_display"], row["id"], row["scholarship_name"])
-        db.update_scholarship(row["id"], {**up, "extracted_at": db.now_iso(), "last_verified_at": db.now_iso()})
-        stats["updated_fields"] += len(up)
+                             f"Amount for {row['scholarship_name']}: {row.get('amount_display') or 'unknown'} -> {safe['amount_display']}",
+                             "amount_display", row.get("amount_display"), safe["amount_display"], row["id"], row["scholarship_name"])
+        db.update_scholarship(row["id"], {**safe, "extracted_at": db.now_iso(), "last_verified_at": db.now_iso()})
+        stats["updated_fields"] += len(safe)
 
     # New scholarships found on the page that we do not have yet.
     added = 0
@@ -161,7 +215,7 @@ def run() -> int:
     # Global dedupe: (university, normalized name) pairs already in the database.
     known_names = {(r.get("university_name") or "", normalize_name(r.get("scholarship_name")))
                    for r in db.all_scholarships()}
-    stats = {"ok": 0, "changed": 0, "failed": 0, "skipped": 0, "matched": 0, "updated_fields": 0, "added": 0}
+    stats = {"ok": 0, "changed": 0, "failed": 0, "skipped": 0, "matched": 0, "updated_fields": 0, "added": 0, "flagged": 0}
 
     with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as pool:
         for source, result, text, records in pool.map(fetch_source, sources):
@@ -188,7 +242,7 @@ def run() -> int:
                                          f"Scholarship page updated for {name}", "page_content",
                                          cmp["old_text"][:1000], cmp["new_text"][:1000])
                 page = process_page(source, records, linked_map.get(source["id"], []), today, known_names)
-                for k in ("matched", "updated_fields", "added"):
+                for k in ("matched", "updated_fields", "added", "flagged"):
                     stats[k] += page[k]
                 print(f"ok     {name}: {len(records)} found, {page['matched']} matched, {page['added']} new")
             except Exception as e:  # one bad source must never stop the run
