@@ -27,7 +27,7 @@ export function VerificationBadge({ lastVerifiedAt, compact = false }: Verificat
     ) : (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-body text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
         <ShieldCheck className="h-2.5 w-2.5" />
-        Verified
+        Checked
       </span>
     );
   }

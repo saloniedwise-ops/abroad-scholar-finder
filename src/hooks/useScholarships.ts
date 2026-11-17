@@ -44,14 +44,22 @@ function flagFor(row: Row): string {
 
 /**
  * Rows the old extractor produced from page noise (e-mail addresses, contact
- * names, "skip to content", ...) are not scholarships; closed or expired ones
- * are not worth showing either.
+ * names, "skip to content", ...) are not scholarships; closed, expired or
+ * long-unverified ones are not worth showing either.
  */
+// A scholarship is only shown while the daily crawler has confirmed its source page recently.
+// Dead/blocked pages, search-engine "sources" and never-verified rows therefore drop off
+// automatically, and come back by themselves once the source can be checked again.
+export const MAX_UNVERIFIED_DAYS = 45;
+
 export function isListable(row: Row, today = new Date()): boolean {
   const name = String(row.scholarship_name ?? "").trim();
   if (name.length < 6 || /@|^skip to|^home$|^menu$/i.test(name)) return false;
   if (String(row.learn_more_url ?? "").toLowerCase().startsWith("mailto:")) return false;
   if (row.status === "Closed") return false;
+  if (!row.last_verified_at) return false;
+  const ageDays = (today.getTime() - new Date(row.last_verified_at).getTime()) / 86_400_000;
+  if (!(ageDays <= MAX_UNVERIFIED_DAYS)) return false;
   if (row.deadline_date && new Date(row.deadline_date) < new Date(today.toDateString())) return false;
   return true;
 }

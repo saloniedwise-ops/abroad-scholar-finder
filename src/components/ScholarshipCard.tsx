@@ -19,6 +19,10 @@ interface ScholarshipCardProps {
 }
 
 const parseDeadlineDate = (scholarship: Scholarship): Date | null => {
+  if (scholarship.deadline_date) {
+    const exact = new Date(scholarship.deadline_date);
+    if (!isNaN(exact.getTime())) return exact;
+  }
   const rawDisplay = scholarship.deadline_display;
 
   if (!rawDisplay) return null;
@@ -196,7 +200,7 @@ const ScholarshipCard = ({
             </p>
             <p className="flex items-center gap-1 font-body text-sm font-medium text-card-foreground">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              {scholarship.deadline_display || "Check official page"}
+              {scholarship.deadline_display || "Not confirmed, check official page"}
             </p>
           </div>
         </div>
@@ -204,7 +208,7 @@ const ScholarshipCard = ({
         {scholarship.last_verified_at && (
           <p className="mt-3 font-body text-[10px] text-muted-foreground">
             <Clock3 className="mr-1 inline h-3 w-3" />
-            Recently verified
+            Source page checked {new Date(scholarship.last_verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </p>
         )}
       </Link>
