@@ -10,10 +10,10 @@ from urllib3.util.retry import Retry
 
 from config import REQUEST_TIMEOUT
 
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0 Safari/537.36 ScholarshipMonitor/2.0"
-)
+# Identify honestly as a monitoring bot (same identity the crawler always used).
+# We do not rotate or disguise identities: if a site blocks bots, we report "blocked"
+# and the source needs an official feed, permission, or a manual entry instead.
+USER_AGENT = "Mozilla/5.0 (compatible; ScholarshipMonitor/1.0)"
 
 
 @dataclass
@@ -74,6 +74,8 @@ def fetch(url: str | None, session: requests.Session | None = None) -> FetchResu
         return FetchResult("error", detail=type(e).__name__)
 
     code = r.status_code
+    if r.headers.get("x-amzn-waf-action", "").lower() == "challenge" or (code == 202 and len(r.text.strip()) < 200):
+        return FetchResult("blocked", http_code=code, detail="site bot-protection challenge")
     if code in (404, 410):
         return FetchResult("not_found", http_code=code, detail=f"HTTP {code}")
     if code in (401, 403, 429):
