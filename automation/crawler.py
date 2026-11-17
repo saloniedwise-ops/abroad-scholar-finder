@@ -1,81 +1,111 @@
-import requests
-from bs4 import BeautifulSoup
+"""Daily scholarship crawler.
 
-from db import get_active_sources, get_latest_snapshot, insert_snapshot, insert_change
-from compare import compare_text, normalize_text
+For every active source: fetch -> clean -> detect change -> store snapshot ->
+extract deadline/amount -> update the linked scholarships -> record source status.
+"""
+from __future__ import annotations
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; ScholarshipMonitor/1.0)"
-}
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 
-
-def fetch_page(url: str) -> str:
-    response = requests.get(url, headers=HEADERS, timeout=30)
-    response.raise_for_status()
-    return response.text
-
-
-def extract_text(html: str, css_selector: str | None = None) -> str:
-    soup = BeautifulSoup(html, "lxml")
-
-    for tag in soup(["script", "style", "noscript", "header", "footer"]):
-        tag.decompose()
-
-    if css_selector:
-        node = soup.select_one(css_selector)
-        if node:
-            return normalize_text(node.get_text("\n", strip=True))
-
-    main = soup.find("main")
-    if main:
-        return normalize_text(main.get_text("\n", strip=True))
-
-    return normalize_text(soup.get_text("\n", strip=True))
+import config
+from compare import compare_text, extract_text
+from extract import extract_amount, extract_deadline
+from fetcher import FetchResult, fetch, new_session
 
 
-def run():
-    sources = get_active_sources()
-    print(f"Found {len(sources)} active sources")
+def fetch_source(source: dict) -> tuple[dict, FetchResult, str]:
+    """Network-only step, safe to run in a worker thread."""
+    result = fetch(source.get("source_url"), session=new_session())
+    text = extract_text(result.html, source.get("css_selector")) if result.ok else ""
+    return source, result, text
 
-    for source in sources:
-        source_id = source["id"]
-        university_name = source.get("university_name", "")
-        url = source.get("source_url")
-        css_selector = source.get("css_selector")
 
-        if not url:
-            print(f"Skipping {university_name}: no source_url")
-            continue
+def apply_extraction(source: dict, text: str, linked: list[dict], today: date) -> int:
+    """Update deadline/amount only for 1:1 sources (one page == one scholarship).
 
-        try:
-            html = fetch_page(url)
-            extracted_text = extract_text(html, css_selector)
+    Pages that describe several scholarships can't be mapped safely, so for those we
+    only refresh last_verified_at.
+    """
+    import db
 
-            latest = get_latest_snapshot(source_id)
-            old_text = latest["raw_text"] if latest else ""
+    if len(linked) != 1:
+        return 0
+    row = linked[0]
+    updates: dict = {}
+    deadline = extract_deadline(text, today)
+    if deadline and str(deadline[0]) != row.get("deadline_date"):
+        updates.update(deadline_date=str(deadline[0]), deadline_display=deadline[1])
+        db.insert_change(source["id"], source.get("university_name") or "", "deadline_changed",
+                         f"Deadline for {row['scholarship_name']}: {row.get('deadline_display') or 'unknown'} -> {deadline[1]}",
+                         "deadline_date", row.get("deadline_date"), deadline[0],
+                         row["id"], row["scholarship_name"])
+    amount = extract_amount(text)
+    if amount and amount != row.get("amount_display"):
+        updates["amount_display"] = amount
+        db.insert_change(source["id"], source.get("university_name") or "", "amount_changed",
+                         f"Amount for {row['scholarship_name']}: {row.get('amount_display') or 'unknown'} -> {amount}",
+                         "amount_display", row.get("amount_display"), amount,
+                         row["id"], row["scholarship_name"])
+    if updates:
+        if updates.get("deadline_date") and updates["deadline_date"] >= str(today) and row.get("status") == "Closed":
+            updates["status"] = "Active"  # deadline extended / reopened
+        db.update_scholarship(row["id"], updates)
+    return len(updates)
 
-            comparison = compare_text(old_text, extracted_text)
 
-            if not latest:
-                insert_snapshot(source_id, comparison["new_text"], comparison["new_hash"])
-                print(f"Initial snapshot saved for {university_name}")
-                continue
+def run() -> int:
+    import db
 
-            if comparison["changed"]:
-                insert_snapshot(source_id, comparison["new_text"], comparison["new_hash"])
-                insert_change(
-                    source_id=source_id,
-                    university_name=university_name,
-                    old_value=comparison["old_text"][:1000],
-                    new_value=comparison["new_text"][:1000],
-                )
-                print(f"Change detected for {university_name}")
-            else:
-                print(f"No change for {university_name}")
+    today = date.today()
+    sources = db.get_active_sources()
+    print(f"{len(sources)} active sources (dry_run={config.DRY_RUN}, rebaseline={config.REBASELINE}, service_key={config.USING_SERVICE_KEY})")
+    if not config.USING_SERVICE_KEY and not config.DRY_RUN:
+        print("WARNING: no SUPABASE_SERVICE_KEY, writes may be rejected by RLS", file=sys.stderr)
 
-        except Exception as e:
-            print(f"Error for {university_name}: {e}")
+    latest = db.get_latest_snapshots()
+    linked_map = db.get_scholarships_by_source(sources)
+    stats = {"ok": 0, "changed": 0, "failed": 0, "skipped": 0, "updated_fields": 0}
+
+    with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as pool:
+        for source, result, text in pool.map(fetch_source, sources):
+            name = source.get("university_name") or source.get("source_slug") or source["id"][:8]
+            try:
+                db.update_source_status(source["id"], result.label())
+                if result.status == "skipped":
+                    stats["skipped"] += 1
+                    print(f"skip   {name}: {result.detail}")
+                    continue
+                if not result.ok:
+                    stats["failed"] += 1
+                    print(f"FAIL   {name}: {result.label()}")
+                    continue
+
+                stats["ok"] += 1
+                prev = latest.get(source["id"])
+                cmp = compare_text(prev["raw_text"] if prev else "", text)
+                if prev is None or cmp["changed"]:
+                    db.insert_snapshot(source["id"], cmp["new_text"], cmp["new_hash"])
+                    if prev is not None and not config.REBASELINE:
+                        stats["changed"] += 1
+                        db.insert_change(source["id"], source.get("university_name") or "", "modified",
+                                         f"Scholarship page updated for {name}", "page_content",
+                                         cmp["old_text"][:1000], cmp["new_text"][:1000])
+                linked = linked_map.get(source["id"], [])
+                stats["updated_fields"] += apply_extraction(source, cmp["new_text"], linked, today)
+                db.mark_verified([r["id"] for r in linked])
+                print(f"ok     {name}" + ("  (changed)" if prev is not None and cmp["changed"] and not config.REBASELINE else ""))
+            except Exception as e:  # one bad source must never stop the run
+                stats["failed"] += 1
+                print(f"ERROR  {name}: {type(e).__name__}: {e}", file=sys.stderr)
+
+    db.close_expired(str(today))
+    print(f"\nSummary: {stats}")
+    # Fail the workflow only if (almost) everything failed, i.e. the crawler itself is broken.
+    total = stats["ok"] + stats["failed"]
+    return 1 if total and stats["ok"] / total < 0.3 else 0
 
 
 if __name__ == "__main__":
-    run()
+    sys.exit(run())
