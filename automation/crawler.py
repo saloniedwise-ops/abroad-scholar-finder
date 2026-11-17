@@ -59,10 +59,17 @@ def run() -> int:
     import db
 
     today = date.today()
+    # RLS is on: without the service-role key every read returns nothing and the run would
+    # look "successful". Refuse to run instead of failing silently.
+    if not config.USING_SERVICE_KEY:
+        print("ERROR: SUPABASE_SERVICE_KEY is not set (the public key can no longer read or write crawler tables).",
+              file=sys.stderr)
+        return 2
     sources = db.get_active_sources()
+    if not sources:
+        print("ERROR: no active sources returned; check SUPABASE_URL / SUPABASE_SERVICE_KEY.", file=sys.stderr)
+        return 2
     print(f"{len(sources)} active sources (dry_run={config.DRY_RUN}, rebaseline={config.REBASELINE}, service_key={config.USING_SERVICE_KEY})")
-    if not config.USING_SERVICE_KEY and not config.DRY_RUN:
-        print("WARNING: no SUPABASE_SERVICE_KEY, writes may be rejected by RLS", file=sys.stderr)
 
     latest = db.get_latest_snapshots()
     linked_map = db.get_scholarships_by_source(sources)

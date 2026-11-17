@@ -43,8 +43,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # Fallback so the job keeps working until SUPABASE_SERVICE_KEY is added.
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           REBASELINE: ${{ inputs.rebaseline && '1' || '' }}
         run: cd automation && python crawler.py
