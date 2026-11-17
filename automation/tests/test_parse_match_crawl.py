@@ -104,7 +104,7 @@ def test_process_page_updates_matched_adds_new_and_verifies_only_matched(monkeyp
         {"id": "r2", "scholarship_name": "Vanished Award", "deadline_date": None, "status": None},
     ]
     records = parse_page(LISTING, source["source_url"], TODAY)
-    stats = crawler.process_page(source, records, linked, TODAY)
+    stats = crawler.process_page(source, records, linked, TODAY, set())
 
     assert stats["matched"] == 1  # only "Merit Scholarship" exists in the database already
     assert "r1" in fake.verified and "r2" not in fake.verified  # unmatched rows age out
