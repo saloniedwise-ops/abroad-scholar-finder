@@ -18,6 +18,8 @@ import {
   Heart,
 } from "lucide-react";
 import { degreeTokens } from "@/lib/taxonomy";
+import MatchMe from "@/components/MatchMe";
+import { rankMatches, type StudentProfile } from "@/lib/matcher";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -95,6 +97,7 @@ const Index = () => {
   const [selectedQuickFilters, setSelectedQuickFilters] = useState<QuickFilterType[]>([]);
   const [selectedSort, setSelectedSort] = useState<SortOption>("relevant");
   const [currentPage, setCurrentPage] = useState(1);
+  const [matchProfile, setMatchProfile] = useState<StudentProfile | null>(null);
 
   const { data: scholarships = [], isLoading, error } = useScholarships();
   const { isSaved, toggleSaved, savedCount, clearSaved, savedIds } = useSavedScholarships();
@@ -153,12 +156,22 @@ const Index = () => {
     selectedQuickFilters,
   ]);
 
+  const matchReasonsById = useMemo(() => {
+    if (!matchProfile) return null;
+    const map = new Map<string, string[]>();
+    rankMatches(filtered, matchProfile).forEach((r) => map.set(r.scholarship.id, r.reasons));
+    return map;
+  }, [filtered, matchProfile]);
+
   const sorted = useMemo(() => {
+    if (matchProfile) {
+      return rankMatches(filtered, matchProfile).map((r) => r.scholarship);
+    }
     if (selectedSort === "deadline") return sortByNearestDeadline(filtered);
     if (selectedSort === "updated") return sortByRecentVerification(filtered);
     if (selectedSort === "name") return sortByName(filtered);
     return sortByRelevance(filtered);
-  }, [filtered, selectedSort]);
+  }, [filtered, selectedSort, matchProfile]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -170,6 +183,7 @@ const Index = () => {
     selectedUniversity,
     selectedQuickFilters,
     selectedSort,
+    matchProfile,
   ]);
 
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
@@ -222,6 +236,7 @@ const Index = () => {
           scholarship={s}
           isSaved={isSaved(s.id)}
           onToggleSaved={toggleSaved}
+          matchReasons={matchReasonsById?.get(s.id)}
         />
       ))}
     </div>
@@ -288,6 +303,17 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-10">
+        <MatchMe
+          countries={filterOptions.countries}
+          fields={filterOptions.fields}
+          onMatch={setMatchProfile}
+          active={!!matchProfile}
+        />
+        {matchProfile && (
+          <p className="mb-6 font-body text-sm text-muted-foreground">
+            Showing your best matches first, based on what you told us.
+          </p>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gold" />

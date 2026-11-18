@@ -17,6 +17,7 @@ interface ScholarshipCardProps {
   scholarship: Scholarship;
   isSaved?: boolean;
   onToggleSaved?: (id: string) => void;
+  matchReasons?: string[];
 }
 
 
@@ -58,6 +59,7 @@ const ScholarshipCard = ({
   scholarship,
   isSaved = false,
   onToggleSaved,
+  matchReasons,
 }: ScholarshipCardProps) => {
   const slug = scholarship.scholarship_slug || scholarship.id;
   const deadlineBadge = getDeadlineBadge(scholarship);
@@ -127,6 +129,19 @@ const ScholarshipCard = ({
           <h3 className="font-display text-lg font-bold leading-tight text-card-foreground">
             {scholarship.scholarship_name}
           </h3>
+
+          {matchReasons && matchReasons.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {matchReasons.map((reason) => (
+                <span
+                  key={reason}
+                  className="rounded-full bg-gold/15 px-2 py-0.5 font-body text-[11px] font-medium text-gold-dark"
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <p className="mb-2 flex items-center gap-1.5 font-body text-sm text-muted-foreground">
