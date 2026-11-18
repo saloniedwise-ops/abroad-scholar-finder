@@ -11,8 +11,12 @@
 //
 // Cost: Gemini's free tier covers this comfortably; no paid services.
 
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
+const GEMINI_URL = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+// gemini-3.1-flash-lite is the fastest free model (~1-2s here) but shares a
+// busy free-tier pool and sometimes answers 503 "high demand"; gemini-3.8-flash
+// (thinking off) is the fallback at ~2s. Both are free tier.
 
 const SYSTEM = `You extract scholarship-search criteria from a student's short self-description.
 Return ONLY compact JSON with these keys:
@@ -48,8 +52,8 @@ Deno.serve(async (req) => {
   }
   if (!text.trim()) return respond("bad request", 400);
 
-  const callGemini = () =>
-    fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  const callGemini = (model: string) =>
+    fetch(`${GEMINI_URL(model)}?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -63,14 +67,16 @@ Deno.serve(async (req) => {
       }),
     });
 
-  // Gemini's free tier occasionally answers 429/503 under burst load; one
-  // short retry absorbs most of those before we give up to local parsing.
-  let res = await callGemini();
-  if (!res.ok) {
-    await new Promise((r) => setTimeout(r, 1500));
-    res = await callGemini();
+  // The free tier occasionally answers 429/503 under burst load; fall back
+  // across the two free models with short pauses before giving up to local
+  // parsing.
+  let res: Response | null = null;
+  for (const model of ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.1-flash-lite"]) {
+    if (res !== null) await new Promise((r) => setTimeout(r, 1200));
+    res = await callGemini(model);
+    if (res.ok) break;
   }
-  if (!res.ok) return respond("upstream error", 502);
+  if (!res || !res.ok) return respond("upstream error", 502);
 
   const data = await res.json();
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
