@@ -15,11 +15,9 @@ import {
   BookOpen,
   Building2,
   Loader2,
-  Sparkles,
-  Clock3,
-  Banknote,
   Heart,
 } from "lucide-react";
+import { degreeTokens } from "@/lib/taxonomy";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -75,6 +73,19 @@ const sortByName = (items: Scholarship[]) => {
   return [...items].sort((a, b) => a.scholarship_name.localeCompare(b.scholarship_name));
 };
 
+// Default ordering: featured first, then the nearest real deadline, undated last.
+const sortByRelevance = (items: Scholarship[]) => {
+  return [...items].sort((a, b) => {
+    if (!!a.featured !== !!b.featured) return a.featured ? -1 : 1;
+    const aDate = getDeadlineDate(a);
+    const bDate = getDeadlineDate(b);
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.getTime() - bDate.getTime();
+  });
+};
+
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
@@ -101,11 +112,18 @@ const Index = () => {
       const matchesSearch =
         !q ||
         s.scholarship_name.toLowerCase().includes(q) ||
-        s.university_name.toLowerCase().includes(q);
+        s.university_name.toLowerCase().includes(q) ||
+        s.country_name.toLowerCase().includes(q);
 
       const matchesCountry = !selectedCountry || s.country_name === selectedCountry;
-      const matchesField = !selectedField || s.field_category === selectedField;
-      const matchesDegree = !selectedDegree || s.degree_level.includes(selectedDegree);
+      // "Other" = we don't know the field yet, so don't hide the scholarship.
+      const matchesField =
+        !selectedField || s.field_category === "Other" || s.field_category === selectedField;
+      // degree_level is free text ("Undergraduate, Postgraduate", "General" when
+      // unknown). Match on canonical levels; unknown levels match any selection.
+      const levels = degreeTokens(s.degree_level);
+      const matchesDegree =
+        !selectedDegree || levels.length === 0 || levels.includes(selectedDegree as never);
       const matchesUniversity = !selectedUniversity || s.university_name === selectedUniversity;
 
       const matchesQuickFilters =
@@ -139,7 +157,7 @@ const Index = () => {
     if (selectedSort === "deadline") return sortByNearestDeadline(filtered);
     if (selectedSort === "updated") return sortByRecentVerification(filtered);
     if (selectedSort === "name") return sortByName(filtered);
-    return filtered;
+    return sortByRelevance(filtered);
   }, [filtered, selectedSort]);
 
   useEffect(() => {
@@ -175,8 +193,11 @@ const Index = () => {
   const byDegree = useMemo(() => {
     const map: Record<string, Scholarship[]> = {};
     sorted.forEach((s) => {
-      if (!map[s.degree_level]) map[s.degree_level] = [];
-      map[s.degree_level].push(s);
+      const levels = degreeTokens(s.degree_level);
+      (levels.length > 0 ? levels : ["Other"]).forEach((level) => {
+        if (!map[level]) map[level] = [];
+        map[level].push(s);
+      });
     });
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [sorted]);
@@ -190,15 +211,8 @@ const Index = () => {
     return Object.entries(map).sort((a, b) => b[1].length - a[1].length);
   }, [sorted]);
 
-  const featured = paginatedItems.filter((s) => s.featured);
-  const closingSoon = useMemo(() => sortByNearestDeadline(scholarships.filter(isClosingSoon)).slice(0, 6), [scholarships]);
-  const recentlyUpdated = useMemo(
-    () => sortByRecentVerification(scholarships.filter(isRecentlyUpdated)).slice(0, 6),
-    [scholarships]
-  );
-  const highValue = useMemo(() => scholarships.filter(isHighValue).slice(0, 6), [scholarships]);
+  const hasRealFields = filterOptions.fields.length > 0;
 
-  const hasQuickFiltersActive = selectedQuickFilters.length > 0;
 
   const renderGrid = (items: Scholarship[]) => (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -284,64 +298,6 @@ const Index = () => {
           </div>
         ) : (
           <>
-            {savedScholarships.length > 0 && !hasQuickFiltersActive && (
-              <div className="mb-12">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Heart className="h-5 w-5 text-rose-500" />
-                    <h2 className="font-display text-2xl font-bold text-foreground">
-                      Saved Scholarships
-                    </h2>
-                    <span className="rounded-full bg-rose-100 px-2.5 py-0.5 font-body text-xs font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
-                      {savedCount}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={clearSaved}
-                    className="font-body text-xs text-muted-foreground hover:text-destructive"
-                  >
-                    Clear Saved
-                  </button>
-                </div>
-                {renderGrid(savedScholarships.slice(0, 6))}
-              </div>
-            )}
-
-            {!hasQuickFiltersActive && (closingSoon.length > 0 || recentlyUpdated.length > 0 || highValue.length > 0) && (
-              <div className="mb-12 space-y-10">
-                {closingSoon.length > 0 && (
-                  <div>
-                    <div className="mb-4 flex items-center gap-2">
-                      <Clock3 className="h-5 w-5 text-amber-500" />
-                      <h2 className="font-display text-xl font-bold text-foreground">Closing Soon</h2>
-                    </div>
-                    {renderGrid(closingSoon)}
-                  </div>
-                )}
-
-                {recentlyUpdated.length > 0 && (
-                  <div>
-                    <div className="mb-4 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-emerald-500" />
-                      <h2 className="font-display text-xl font-bold text-foreground">Recently Updated</h2>
-                    </div>
-                    {renderGrid(recentlyUpdated)}
-                  </div>
-                )}
-
-                {highValue.length > 0 && (
-                  <div>
-                    <div className="mb-4 flex items-center gap-2">
-                      <Banknote className="h-5 w-5 text-blue-500" />
-                      <h2 className="font-display text-xl font-bold text-foreground">High Value Scholarships</h2>
-                    </div>
-                    {renderGrid(highValue)}
-                  </div>
-                )}
-              </div>
-            )}
-
             <Tabs defaultValue="all" className="w-full">
               <TabsList className="mb-6 w-full justify-start">
                 <TabsTrigger value="all" className="gap-1.5">
@@ -365,26 +321,16 @@ const Index = () => {
                   <BookOpen className="h-4 w-4" />
                   By Degree
                 </TabsTrigger>
-                <TabsTrigger value="field" className="gap-1.5">
-                  <Building2 className="h-4 w-4" />
-                  By Field
-                </TabsTrigger>
+                {hasRealFields && (
+                  <TabsTrigger value="field" className="gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    By Field
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="all">
-                {featured.length > 0 && (
-                  <div className="mb-8">
-                    <h3 className="mb-4 font-display text-xl font-bold text-foreground">
-                      ⭐ Featured Scholarships
-                    </h3>
-                    {renderGrid(featured)}
-                  </div>
-                )}
-
                 <div>
-                  <h3 className="mb-4 font-display text-xl font-bold text-foreground">
-                    All Scholarships
-                  </h3>
                   {renderGrid(paginatedItems)}
                   <ScholarshipPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                 </div>
@@ -433,9 +379,11 @@ const Index = () => {
                 {renderGrouped(byDegree, <BookOpen className="h-5 w-5 text-gold" />)}
               </TabsContent>
 
-              <TabsContent value="field">
-                {renderGrouped(byField, <Building2 className="h-5 w-5 text-gold" />)}
-              </TabsContent>
+              {hasRealFields && (
+                <TabsContent value="field">
+                  {renderGrouped(byField, <Building2 className="h-5 w-5 text-gold" />)}
+                </TabsContent>
+              )}
             </Tabs>
           </>
         )}
