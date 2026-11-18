@@ -18,6 +18,7 @@ interface ScholarshipCardProps {
   isSaved?: boolean;
   onToggleSaved?: (id: string) => void;
   matchReasons?: string[];
+  isMatch?: boolean;
 }
 
 
@@ -60,6 +61,7 @@ const ScholarshipCard = ({
   isSaved = false,
   onToggleSaved,
   matchReasons,
+  isMatch = false,
 }: ScholarshipCardProps) => {
   const slug = scholarship.scholarship_slug || scholarship.id;
   const deadlineBadge = getDeadlineBadge(scholarship);
@@ -67,7 +69,7 @@ const ScholarshipCard = ({
   const showHighValueBadge = isHighValueScholarship(scholarship.amount_display);
 
   return (
-    <div className="group relative flex flex-col rounded-xl border border-border bg-card shadow-card transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1 overflow-hidden">
+    <div className={`group relative flex flex-col rounded-xl border bg-card shadow-card transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1 overflow-hidden ${isMatch ? "border-gold/60 ring-2 ring-gold/30" : "border-border"}`}>
       <button
         onClick={() => onToggleSaved?.(scholarship.id)}
         className={`absolute right-4 top-4 z-20 inline-flex items-center justify-center rounded-full border p-2 transition-colors ${
@@ -84,6 +86,12 @@ const ScholarshipCard = ({
         {scholarship.featured && (
           <span className="rounded-full bg-gold/15 px-2.5 py-0.5 font-body text-[11px] font-semibold text-gold-dark">
             ⭐ Featured
+          </span>
+        )}
+
+        {isMatch && (
+          <span className="rounded-full bg-gold px-2.5 py-0.5 font-body text-[11px] font-semibold text-white">
+            ✨ Match
           </span>
         )}
 

@@ -35,6 +35,7 @@ interface FilterBarProps {
   onQuickFiltersChange: (filters: QuickFilterType[]) => void;
   onSortChange: (sort: SortOption) => void;
   resultCount: number;
+  matchCount?: number;
   countries: string[];
   fields: string[];
   degrees: string[];
@@ -56,6 +57,7 @@ const FilterBar = ({
   onQuickFiltersChange,
   onSortChange,
   resultCount,
+  matchCount,
   countries,
   fields,
   degrees,
@@ -213,7 +215,11 @@ const FilterBar = ({
               )}
 
               <span className="whitespace-nowrap font-body text-sm text-muted-foreground">
-                {resultCount} scholarships found
+                {matchCount != null ? (
+                  <span className="font-semibold text-gold-dark">✨ {matchCount} matches found</span>
+                ) : (
+                  <>{resultCount} scholarships found</>
+                )}
               </span>
             </div>
           </div>
