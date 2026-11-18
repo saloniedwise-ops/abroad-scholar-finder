@@ -164,12 +164,26 @@ const Index = () => {
     }
   }, [matchProfile]);
 
-  const matchReasonsById = useMemo(() => {
+  const matchInfoById = useMemo(() => {
     if (!matchProfile) return null;
-    const map = new Map<string, string[]>();
-    rankMatches(filtered, matchProfile).forEach((r) => map.set(r.scholarship.id, r.reasons));
+    const map = new Map<string, { reasons: string[]; score: number }>();
+    rankMatches(filtered, matchProfile).forEach((r) =>
+      map.set(r.scholarship.id, { reasons: r.reasons, score: r.score })
+    );
     return map;
   }, [filtered, matchProfile]);
+
+  // A scholarship counts as a match when at least one real criterion hit
+  // (degree/field/country/fully-funded), not just soft signals like a
+  // rolling deadline.
+  const matchCount = useMemo(() => {
+    if (!matchInfoById) return 0;
+    let n = 0;
+    matchInfoById.forEach((v) => {
+      if (v.score >= 4) n += 1;
+    });
+    return n;
+  }, [matchInfoById]);
 
   const sorted = useMemo(() => {
     if (matchProfile) {
@@ -244,7 +258,8 @@ const Index = () => {
           scholarship={s}
           isSaved={isSaved(s.id)}
           onToggleSaved={toggleSaved}
-          matchReasons={matchReasonsById?.get(s.id)}
+          matchReasons={matchInfoById?.get(s.id)?.reasons}
+          isMatch={(matchInfoById?.get(s.id)?.score ?? 0) >= 4}
         />
       ))}
     </div>
@@ -304,6 +319,7 @@ const Index = () => {
         onQuickFiltersChange={setSelectedQuickFilters}
         onSortChange={setSelectedSort}
         resultCount={sorted.length}
+        matchCount={matchProfile ? matchCount : undefined}
         countries={filterOptions.countries}
         fields={filterOptions.fields}
         degrees={filterOptions.degrees}
@@ -318,10 +334,14 @@ const Index = () => {
           active={!!matchProfile}
         />
         {matchProfile && (
-          <div className="mb-6 flex flex-wrap items-center gap-2">
-            <span className="font-body text-sm text-muted-foreground">
-              Showing your best matches first
-            </span>
+          <div className="mb-6 rounded-xl border-2 border-gold/50 bg-gold/10 px-5 py-4">
+            <p className="font-display text-xl font-bold text-foreground">
+              ✨ Found {matchCount} scholarship{matchCount === 1 ? "" : "s"} matching your profile
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="font-body text-sm text-muted-foreground">
+                Best matches shown first for:
+              </span>
             {[
               ...matchProfile.degrees,
               ...matchProfile.fields,
@@ -335,6 +355,7 @@ const Index = () => {
                 {chip}
               </span>
             ))}
+            </div>
           </div>
         )}
         {isLoading ? (
