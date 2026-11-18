@@ -22,18 +22,31 @@ Return ONLY compact JSON with these keys:
 - "fullyFunded": boolean, true if they want full funding / full tuition / 100%.
 Omit keys you cannot infer. No prose, no markdown.`;
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+const respond = (body: string, status = 200, json = false) =>
+  new Response(body, {
+    status,
+    headers: { ...CORS, ...(json ? { "Content-Type": "application/json" } : {}) },
+  });
+
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
+  if (req.method === "OPTIONS") return respond("ok");
+  if (req.method !== "POST") return respond("method not allowed", 405);
   const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) return new Response("not configured", { status: 503 });
+  if (!apiKey) return respond("not configured", 503);
 
   let text = "";
   try {
     text = String((await req.json()).text ?? "").slice(0, 1000);
   } catch {
-    return new Response("bad request", { status: 400 });
+    return respond("bad request", 400);
   }
-  if (!text.trim()) return new Response("bad request", { status: 400 });
+  if (!text.trim()) return respond("bad request", 400);
 
   const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
     method: "POST",
@@ -43,15 +56,13 @@ Deno.serve(async (req) => {
       generationConfig: { responseMimeType: "application/json", temperature: 0 },
     }),
   });
-  if (!res.ok) return new Response("upstream error", { status: 502 });
+  if (!res.ok) return respond("upstream error", 502);
 
   const data = await res.json();
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
   try {
-    return new Response(JSON.stringify(JSON.parse(raw)), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return respond(JSON.stringify(JSON.parse(raw)), 200, true);
   } catch {
-    return new Response("{}", { headers: { "Content-Type": "application/json" } });
+    return respond("{}", 200, true);
   }
 });
