@@ -12,7 +12,7 @@
 // Cost: Gemini's free tier covers this comfortably; no paid services.
 
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
 const SYSTEM = `You extract scholarship-search criteria from a student's short self-description.
 Return ONLY compact JSON with these keys:
