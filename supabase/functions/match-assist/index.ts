@@ -48,19 +48,28 @@ Deno.serve(async (req) => {
   }
   if (!text.trim()) return respond("bad request", 400);
 
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: `${SYSTEM}\n\nStudent: ${text}` }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0,
-        maxOutputTokens: 200,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
+  const callGemini = () =>
+    fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: `${SYSTEM}\n\nStudent: ${text}` }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0,
+          maxOutputTokens: 200,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+    });
+
+  // Gemini's free tier occasionally answers 429/503 under burst load; one
+  // short retry absorbs most of those before we give up to local parsing.
+  let res = await callGemini();
+  if (!res.ok) {
+    await new Promise((r) => setTimeout(r, 1500));
+    res = await callGemini();
+  }
   if (!res.ok) return respond("upstream error", 502);
 
   const data = await res.json();
