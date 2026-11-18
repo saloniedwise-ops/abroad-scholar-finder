@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useScholarships, useFilterOptions } from "@/hooks/useScholarships";
 import { useSavedScholarships } from "@/hooks/useSavedScholarships";
@@ -156,6 +156,14 @@ const Index = () => {
     selectedQuickFilters,
   ]);
 
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (matchProfile) {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [matchProfile]);
+
   const matchReasonsById = useMemo(() => {
     if (!matchProfile) return null;
     const map = new Map<string, string[]>();
@@ -310,9 +318,24 @@ const Index = () => {
           active={!!matchProfile}
         />
         {matchProfile && (
-          <p className="mb-6 font-body text-sm text-muted-foreground">
-            Showing your best matches first, based on what you told us.
-          </p>
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="font-body text-sm text-muted-foreground">
+              Showing your best matches first
+            </span>
+            {[
+              ...matchProfile.degrees,
+              ...matchProfile.fields,
+              ...matchProfile.countries,
+              ...(matchProfile.fullyFunded ? ["Fully funded"] : []),
+            ].map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full bg-gold/15 px-2.5 py-0.5 font-body text-xs font-medium text-gold-dark"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
         )}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -324,6 +347,7 @@ const Index = () => {
           </div>
         ) : (
           <>
+            <div ref={resultsRef} className="scroll-mt-32" />
             <Tabs defaultValue="all" className="w-full">
               <TabsList className="mb-6 w-full justify-start">
                 <TabsTrigger value="all" className="gap-1.5">

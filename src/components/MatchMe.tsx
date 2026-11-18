@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Sparkles, X, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Sparkles, X, Loader2, Wand2 } from "lucide-react";
 import {
   extractProfile,
   isEmptyProfile,
@@ -22,7 +22,30 @@ const selectClass =
 // by the LLM. Without it, everything below still runs in the browser.
 const AI_ASSIST_URL = import.meta.env.VITE_MATCH_ASSIST_URL as string | undefined;
 
-const assistWithAi = async (text: string): Promise<StudentProfile | null> => {
+const DEGREES = new Set<string>(CANONICAL_DEGREES);
+const DEGREE_ALIAS: Record<string, string> = {
+  undergraduate: "Undergraduate", bachelor: "Undergraduate", bachelors: "Undergraduate",
+  postgraduate: "Postgraduate", master: "Postgraduate", masters: "Postgraduate",
+  mba: "Postgraduate", pg: "Postgraduate",
+  phd: "PhD / Research", doctorate: "PhD / Research", doctoral: "PhD / Research",
+};
+const FIELDS = ["Engineering", "Business", "Medicine", "Law", "Science", "Arts", "Sport"];
+const FIELD_ALIAS: Record<string, string> = Object.fromEntries([
+  ...FIELDS.map((f) => [f.toLowerCase(), f] as [string, string]),
+  ["cs", "Engineering"], ["computer science", "Engineering"], ["management", "Business"],
+  ["mba", "Business"], ["finance", "Business"], ["medical", "Medicine"], ["legal", "Law"],
+]);
+
+const canonical = (arr: unknown, aliases: Record<string, string>, allowed: Set<string> | string[]) => {
+  if (!Array.isArray(arr)) return undefined;
+  const allow = new Set(allowed as Iterable<string>);
+  const out = arr
+    .map((v) => aliases[String(v).trim().toLowerCase()])
+    .filter((v): v is string => !!v && allow.has(v));
+  return out.length ? [...new Set(out)] : undefined;
+};
+
+const assistWithAi = async (text: string): Promise<Partial<StudentProfile> | null> => {
   if (!AI_ASSIST_URL) return null;
   try {
     const res = await fetch(AI_ASSIST_URL, {
@@ -32,18 +55,23 @@ const assistWithAi = async (text: string): Promise<StudentProfile | null> => {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const base = extractProfile(text);
     return {
-      degrees: Array.isArray(data.degrees) ? data.degrees : base.degrees,
-      fields: Array.isArray(data.fields) ? data.fields : base.fields,
-      countries: Array.isArray(data.countries) ? data.countries : base.countries,
-      fullyFunded: typeof data.fullyFunded === "boolean" ? data.fullyFunded : base.fullyFunded,
-      raw: base.raw,
+      degrees: canonical(data.degrees, DEGREE_ALIAS, DEGREES),
+      fields: canonical(data.fields, FIELD_ALIAS, FIELDS),
+      countries: Array.isArray(data.countries) ? data.countries.map(String) : undefined,
+      fullyFunded: typeof data.fullyFunded === "boolean" ? data.fullyFunded : undefined,
     };
   } catch {
-    return null; // network or function down: local parsing already covers it
+    return null; // network or function down: local parsing already applied
   }
 };
+
+const AI_STEPS = [
+  "Reading your profile...",
+  "Asking Gemini to understand your goals...",
+  "Scanning every scholarship...",
+  "Re-ranking your best matches...",
+];
 
 const MatchMe = ({ countries, fields, onMatch, active }: MatchMeProps) => {
   const [open, setOpen] = useState(false);
@@ -52,22 +80,56 @@ const MatchMe = ({ countries, fields, onMatch, active }: MatchMeProps) => {
   const [field, setField] = useState("");
   const [country, setCountry] = useState("");
   const [fullyFunded, setFullyFunded] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [aiState, setAiState] = useState<"idle" | "working" | "refined" | "local">("idle");
+  const [step, setStep] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (aiState === "working") {
+      setStep(0);
+      timer.current = setInterval(() => setStep((s) => (s + 1) % AI_STEPS.length), 1400);
+      return () => {
+        if (timer.current) clearInterval(timer.current);
+      };
+    }
+  }, [aiState]);
+
+  const buildProfile = (parsed: Partial<StudentProfile> | null): StudentProfile => ({
+    degrees: degree ? [degree] : parsed?.degrees ?? [],
+    fields: field ? [field] : parsed?.fields ?? [],
+    countries: country ? [country] : parsed?.countries ?? [],
+    fullyFunded: fullyFunded || parsed?.fullyFunded === true,
+    raw: text.trim(),
+  });
 
   const handleMatch = async () => {
-    setBusy(true);
-    try {
-      const fromText = text.trim() ? (await assistWithAi(text)) ?? extractProfile(text) : null;
-      const profile: StudentProfile = {
-        degrees: degree ? [degree] : fromText?.degrees ?? [],
-        fields: field ? [field] : fromText?.fields ?? [],
-        countries: country ? [country] : fromText?.countries ?? [],
-        fullyFunded: fullyFunded || (fromText?.fullyFunded ?? false),
-        raw: text.trim(),
-      };
-      if (!isEmptyProfile(profile)) onMatch(profile);
-    } finally {
-      setBusy(false);
+    const local = text.trim() ? extractProfile(text) : null;
+    const base = buildProfile(local);
+    if (isEmptyProfile(base)) return;
+
+    // Instant: local parsing ranks immediately so there is always something
+    // to look at, then Gemini refines the order a moment later.
+    onMatch(base);
+
+    if (!text.trim() || !AI_ASSIST_URL) {
+      setAiState("local");
+      return;
+    }
+    setAiState("working");
+    const ai = await assistWithAi(text);
+    if (ai && (ai.degrees || ai.fields || ai.countries || ai.fullyFunded !== undefined)) {
+      // AI wins over the quick local parse; explicit dropdown picks win over both.
+      const refined = buildProfile({
+        degrees: ai.degrees ?? local?.degrees,
+        fields: ai.fields ?? local?.fields,
+        countries: ai.countries ?? local?.countries,
+        fullyFunded: ai.fullyFunded ?? local?.fullyFunded,
+        raw: local?.raw ?? "",
+      } as Partial<StudentProfile>);
+      onMatch(refined);
+      setAiState("refined");
+    } else {
+      setAiState("local");
     }
   };
 
@@ -77,6 +139,7 @@ const MatchMe = ({ countries, fields, onMatch, active }: MatchMeProps) => {
     setField("");
     setCountry("");
     setFullyFunded(false);
+    setAiState("idle");
     onMatch(null);
   };
 
@@ -157,13 +220,13 @@ const MatchMe = ({ countries, fields, onMatch, active }: MatchMeProps) => {
         </label>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={handleMatch}
-          disabled={busy}
+          disabled={aiState === "working"}
           className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 font-body text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {aiState === "working" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Find my matches
         </button>
         {active && (
@@ -175,6 +238,28 @@ const MatchMe = ({ countries, fields, onMatch, active }: MatchMeProps) => {
           </button>
         )}
       </div>
+
+      {aiState === "working" && (
+        <div className="mt-4 rounded-lg border border-gold/20 bg-gold/5 px-4 py-3" aria-live="polite">
+          <div className="flex items-center gap-2.5">
+            <Wand2 className="h-4 w-4 animate-pulse text-gold" />
+            <span key={step} className="font-body text-sm text-foreground">
+              {AI_STEPS[step]}
+            </span>
+          </div>
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gold/15">
+            <div className="h-full w-1/3 animate-[slide_1.2s_ease-in-out_infinite] rounded-full bg-gold" />
+          </div>
+          <p className="mt-2 font-body text-xs text-muted-foreground">
+            Your quick matches are already below - Gemini is fine-tuning the order.
+          </p>
+        </div>
+      )}
+      {aiState === "refined" && (
+        <p className="mt-3 font-body text-xs text-emerald-600 dark:text-emerald-400" aria-live="polite">
+          ✨ Gemini refined your matches based on your story.
+        </p>
+      )}
     </div>
   );
 };
