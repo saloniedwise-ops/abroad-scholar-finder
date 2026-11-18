@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { CANONICAL_DEGREES, dedupeScholarships, degreeTokens } from "@/lib/taxonomy";
 
 export interface Scholarship {
   id: string;
@@ -147,7 +148,7 @@ export function useScholarships() {
         .order("featured", { ascending: false });
 
       if (error) throw error;
-      return (data ?? []).filter((r) => isListable(r)).map(normalizeScholarship);
+      return dedupeScholarships((data ?? []).filter((r) => isListable(r)).map(normalizeScholarship));
     },
     staleTime: 0,
     gcTime: 0,
@@ -179,8 +180,16 @@ export function useScholarshipBySlug(slug: string) {
 
 export function useFilterOptions(scholarships: Scholarship[]) {
   const countries = [...new Set(scholarships.map((s) => s.country_name))].sort();
-  const fields = [...new Set(scholarships.map((s) => s.field_category))].sort();
-  const degrees = [...new Set(scholarships.map((s) => s.degree_level))].sort();
+  // Only offer fields the data actually knows about; nearly all rows are
+  // still uncategorised ("Other"), and a one-option filter is just confusing.
+  const fields = [...new Set(scholarships.map((s) => s.field_category))]
+    .filter((f) => f && f !== "Other")
+    .sort();
+  // degree_level is free text ("Undergraduate, Postgraduate", ...); expose
+  // the canonical levels a visitor actually thinks in.
+  const degreeSet = new Set<string>();
+  scholarships.forEach((s) => degreeTokens(s.degree_level).forEach((d) => degreeSet.add(d)));
+  const degrees = CANONICAL_DEGREES.filter((d) => degreeSet.has(d)) as string[];
   const universities = [...new Set(scholarships.map((s) => s.university_name))].sort();
   return { countries, fields, degrees, universities };
 }

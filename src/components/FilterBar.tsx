@@ -144,31 +144,35 @@ const FilterBar = ({
                 ))}
               </select>
 
-              <select
-                value={selectedField}
-                onChange={(e) => onFieldChange(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">📚 All Fields</option>
-                {fields.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
+              {fields.length > 0 && (
+                <select
+                  value={selectedField}
+                  onChange={(e) => onFieldChange(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">📚 All Fields</option>
+                  {fields.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              )}
 
-              <select
-                value={selectedDegree}
-                onChange={(e) => onDegreeChange(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">🎓 All Degrees</option>
-                {degrees.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+              {degrees.length > 0 && (
+                <select
+                  value={selectedDegree}
+                  onChange={(e) => onDegreeChange(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">🎓 All Degrees</option>
+                  {degrees.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
